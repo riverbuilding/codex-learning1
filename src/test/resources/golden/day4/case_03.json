@@ -1,0 +1,20 @@
+{
+  "name": "golden_case_03",
+  "script": "SELECT 3 AS value;",
+  "expected": {
+    "columns": [
+      "value"
+    ],
+    "rows": [
+      [
+        "3"
+      ]
+    ],
+    "errorCategory": null,
+    "errorMessage": null,
+    "metadata": {
+      "phase": "day4",
+      "case": "03"
+    }
+  }
+}
