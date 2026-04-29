@@ -52,7 +52,20 @@ class DifferentialRunnerTest {
         assertTrue(result.differences().contains("rows differ"));
     }
 
-    private record StubAdapter(String name, ExecutionResult result) implements SqlExecutorAdapter {
+    private static final class StubAdapter implements SqlExecutorAdapter {
+        private final String name;
+        private final ExecutionResult result;
+
+        private StubAdapter(String name, ExecutionResult result) {
+            this.name = name;
+            this.result = result;
+        }
+
+        @Override
+        public String name() {
+            return name;
+        }
+
         @Override
         public ExecutionResult executeScript(String script) {
             return result;
