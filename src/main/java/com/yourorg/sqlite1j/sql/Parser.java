@@ -1,0 +1,98 @@
+package com.yourorg.sqlite1j.sql;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public final class Parser {
+    public CreateTableStatement parseCreateTable(String sql) {
+        List<Token> tokens = new Tokenizer().tokenize(sql);
+        Cursor cursor = new Cursor(tokens);
+
+        cursor.expectKeyword("CREATE");
+        cursor.expectKeyword("TABLE");
+        String tableName = cursor.expectIdentifier();
+        cursor.expectSymbol("(");
+
+        List<ColumnDef> columns = new ArrayList<>();
+        while (!cursor.matchSymbol(")")) {
+            String columnName = cursor.expectIdentifier();
+            String typeName = cursor.expectIdentifierOrKeyword();
+            columns.add(new ColumnDef(columnName, typeName));
+
+            if (cursor.matchSymbol(",")) {
+                continue;
+            }
+            cursor.expectSymbol(")");
+            break;
+        }
+
+        cursor.matchSymbol(";");
+        cursor.expectEof();
+        return new CreateTableStatement(tableName, columns);
+    }
+
+    private static final class Cursor {
+        private final List<Token> tokens;
+        private int index;
+
+        private Cursor(List<Token> tokens) {
+            this.tokens = tokens;
+        }
+
+        private Token current() {
+            return tokens.get(index);
+        }
+
+        private boolean matchSymbol(String symbol) {
+            Token token = current();
+            if (token.type() == TokenType.SYMBOL && token.lexeme().equals(symbol)) {
+                index++;
+                return true;
+            }
+            return false;
+        }
+
+        private void expectSymbol(String symbol) {
+            if (!matchSymbol(symbol)) {
+                throw fail("Expected symbol '" + symbol + "'");
+            }
+        }
+
+        private void expectKeyword(String keyword) {
+            Token token = current();
+            if (token.type() != TokenType.KEYWORD || !token.lexeme().equalsIgnoreCase(keyword)) {
+                throw fail("Expected keyword '" + keyword + "'");
+            }
+            index++;
+        }
+
+        private String expectIdentifier() {
+            Token token = current();
+            if (token.type() != TokenType.IDENTIFIER) {
+                throw fail("Expected identifier");
+            }
+            index++;
+            return token.lexeme();
+        }
+
+        private String expectIdentifierOrKeyword() {
+            Token token = current();
+            if (token.type() != TokenType.IDENTIFIER && token.type() != TokenType.KEYWORD) {
+                throw fail("Expected identifier or type keyword");
+            }
+            index++;
+            return token.lexeme();
+        }
+
+        private void expectEof() {
+            Token token = current();
+            if (token.type() != TokenType.EOF) {
+                throw fail("Expected end of statement");
+            }
+        }
+
+        private IllegalArgumentException fail(String message) {
+            return new IllegalArgumentException(message + " at token index " + index + " (" + current().lexeme() + ")");
+        }
+    }
+}
