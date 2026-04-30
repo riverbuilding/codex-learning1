@@ -4,6 +4,7 @@ import com.yourorg.sqlite1j.sql.ColumnDef;
 import com.yourorg.sqlite1j.sql.CreateTableStatement;
 import com.yourorg.sqlite1j.sql.InsertStatement;
 import com.yourorg.sqlite1j.sql.SelectStatement;
+import com.yourorg.sqlite1j.txn.TransactionManager;
 import com.yourorg.sqlite1j.types.DbValue;
 
 import java.util.ArrayList;
@@ -16,6 +17,28 @@ public final class InMemoryDatabase {
     private final Map<String, List<String>> schemas = new HashMap<>();
     private final Map<String, List<Map<String, DbValue>>> rows = new HashMap<>();
     private final ExpressionEvaluator evaluator = new ExpressionEvaluator();
+    private final TransactionManager tx = new TransactionManager();
+    private Map<String, List<Map<String, DbValue>>> txSnapshotRows;
+
+
+    public void beginTransaction() {
+        tx.begin();
+        txSnapshotRows = deepCopyRows(rows);
+    }
+
+    public void commitTransaction() {
+        tx.commit();
+        txSnapshotRows = null;
+    }
+
+    public void rollbackTransaction() {
+        tx.rollback();
+        if (txSnapshotRows != null) {
+            rows.clear();
+            rows.putAll(txSnapshotRows);
+        }
+        txSnapshotRows = null;
+    }
 
     public void execute(CreateTableStatement stmt) {
         List<String> columns = new ArrayList<>();
@@ -58,6 +81,19 @@ public final class InMemoryDatabase {
             throw new IllegalArgumentException("Unknown table: " + tableName);
         }
         return schema;
+    }
+
+
+    private static Map<String, List<Map<String, DbValue>>> deepCopyRows(Map<String, List<Map<String, DbValue>>> source) {
+        Map<String, List<Map<String, DbValue>>> out = new HashMap<>();
+        for (Map.Entry<String, List<Map<String, DbValue>>> e : source.entrySet()) {
+            List<Map<String, DbValue>> copiedRows = new ArrayList<>();
+            for (Map<String, DbValue> row : e.getValue()) {
+                copiedRows.add(new LinkedHashMap<>(row));
+            }
+            out.put(e.getKey(), copiedRows);
+        }
+        return out;
     }
 
     private static DbValue parseLiteral(String literal) {
