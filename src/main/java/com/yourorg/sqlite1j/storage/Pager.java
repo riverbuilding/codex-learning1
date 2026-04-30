@@ -26,7 +26,11 @@ public final class Pager implements Closeable {
         ByteBuffer buffer = ByteBuffer.allocate(pageSize);
         channel.position(offset);
         int read = channel.read(buffer);
-        if (read < pageSize && read >= 0) {
+        if (read < 0) {
+            while (buffer.position() < pageSize) {
+                buffer.put((byte) 0);
+            }
+        } else if (read < pageSize) {
             while (buffer.position() < pageSize) {
                 buffer.put((byte) 0);
             }
