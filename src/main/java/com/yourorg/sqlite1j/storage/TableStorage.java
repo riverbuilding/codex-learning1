@@ -1,5 +1,7 @@
 package com.yourorg.sqlite1j.storage;
 
+import com.yourorg.sqlite1j.exec.ExpressionEvaluator;
+import com.yourorg.sqlite1j.sql.SelectStatement;
 import com.yourorg.sqlite1j.types.DbValue;
 
 import java.nio.charset.StandardCharsets;
@@ -13,6 +15,7 @@ public final class TableStorage {
     private final List<String> columns;
     private final BTree rows;
     private long nextRowId = 1;
+    private final ExpressionEvaluator evaluator = new ExpressionEvaluator();
 
     public TableStorage(String tableName, List<String> columns) {
         this.tableName = tableName;
@@ -40,6 +43,18 @@ public final class TableStorage {
                 row.put(columns.get(i), decoded.get(i));
             }
             out.add(row);
+        }
+        return out;
+    }
+
+
+    public List<List<DbValue>> select(SelectStatement stmt) {
+        List<List<DbValue>> out = new ArrayList<>();
+        for (Map<String, DbValue> row : scanAll()) {
+            if (!evaluator.evaluateWhere(stmt.whereClause(), row)) {
+                continue;
+            }
+            out.add(evaluator.project(stmt.projections(), row));
         }
         return out;
     }
