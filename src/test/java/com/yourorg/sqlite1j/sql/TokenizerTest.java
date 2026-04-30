@@ -27,9 +27,25 @@ class TokenizerTest {
         assertEquals("12.5", tokens.get(8).lexeme());
     }
 
+
+    @Test
+    void tokenizesAllSupportedSymbols() {
+        String sql = ", ; ( ) * = < >";
+        List<Token> tokens = new Tokenizer().tokenize(sql);
+        String[] expected = {",", ";", "(", ")", "*", "=", "<", ">"};
+
+        for (int i = 0; i < expected.length; i++) {
+            assertEquals(TokenType.SYMBOL, tokens.get(i).type());
+            assertEquals(expected[i], tokens.get(i).lexeme());
+        }
+        assertEquals(TokenType.EOF, tokens.get(expected.length).type());
+    }
+
+
     @Test
     void failsOnUnterminatedString() {
         assertThrows(IllegalArgumentException.class,
                 () -> new Tokenizer().tokenize("SELECT 'abc"));
     }
 }
+
