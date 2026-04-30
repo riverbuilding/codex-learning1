@@ -4,6 +4,37 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class Parser {
+    public SelectStatement parseSelect(String sql) {
+        List<Token> tokens = new Tokenizer().tokenize(sql);
+        Cursor cursor = new Cursor(tokens);
+
+        cursor.expectKeyword("SELECT");
+        List<String> projections = new ArrayList<>();
+        if (cursor.matchSymbol("*")) {
+            projections.add("*");
+        } else {
+            projections.add(cursor.expectIdentifier());
+            while (cursor.matchSymbol(",")) {
+                projections.add(cursor.expectIdentifier());
+            }
+        }
+
+        cursor.expectKeyword("FROM");
+        String fromTable = cursor.expectIdentifier();
+
+        WhereClause where = null;
+        if (cursor.matchKeyword("WHERE")) {
+            String column = cursor.expectIdentifier();
+            String operator = cursor.expectComparisonOperator();
+            String literal = cursor.expectLiteral();
+            where = new WhereClause(column, operator, literal);
+        }
+
+        cursor.matchSymbol(";");
+        cursor.expectEof();
+        return new SelectStatement(projections, fromTable, where);
+    }
+
     public InsertStatement parseInsert(String sql) {
         List<Token> tokens = new Tokenizer().tokenize(sql);
         Cursor cursor = new Cursor(tokens);
@@ -91,6 +122,15 @@ public final class Parser {
             index++;
         }
 
+        private boolean matchKeyword(String keyword) {
+            Token token = current();
+            if (token.type() == TokenType.KEYWORD && token.lexeme().equalsIgnoreCase(keyword)) {
+                index++;
+                return true;
+            }
+            return false;
+        }
+
         private String expectIdentifier() {
             Token token = current();
             if (token.type() != TokenType.IDENTIFIER) {
@@ -116,6 +156,15 @@ public final class Parser {
                 return token.lexeme();
             }
             throw fail("Expected literal value");
+        }
+
+        private String expectComparisonOperator() {
+            Token token = current();
+            if (token.type() == TokenType.SYMBOL && ("=".equals(token.lexeme()) || "<".equals(token.lexeme()) || ">".equals(token.lexeme()))) {
+                index++;
+                return token.lexeme();
+            }
+            throw fail("Expected comparison operator (=, <, >)");
         }
 
         private void expectEof() {
