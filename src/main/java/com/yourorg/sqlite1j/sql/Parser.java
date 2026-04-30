@@ -4,6 +4,26 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class Parser {
+    public TransactionStatement parseTransactionControl(String sql) {
+        List<Token> tokens = new Tokenizer().tokenize(sql);
+        Cursor cursor = new Cursor(tokens);
+
+        TransactionCommand cmd;
+        if (cursor.matchKeyword("BEGIN")) {
+            cmd = TransactionCommand.BEGIN;
+        } else if (cursor.matchKeyword("COMMIT")) {
+            cmd = TransactionCommand.COMMIT;
+        } else if (cursor.matchKeyword("ROLLBACK")) {
+            cmd = TransactionCommand.ROLLBACK;
+        } else {
+            throw new IllegalArgumentException("Expected transaction command BEGIN/COMMIT/ROLLBACK");
+        }
+
+        cursor.matchSymbol(";");
+        cursor.expectEof();
+        return new TransactionStatement(cmd);
+    }
+
     public SelectStatement parseSelect(String sql) {
         List<Token> tokens = new Tokenizer().tokenize(sql);
         Cursor cursor = new Cursor(tokens);
