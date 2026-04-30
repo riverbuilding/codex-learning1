@@ -21,10 +21,10 @@ class TokenizerTest {
     @Test
     void tokenizesStringAndNumber() {
         List<Token> tokens = new Tokenizer().tokenize("INSERT INTO t VALUES ('abc', 12.5);");
-        assertEquals(TokenType.STRING, tokens.get(6).type());
-        assertEquals("abc", tokens.get(6).lexeme());
-        assertEquals(TokenType.NUMBER, tokens.get(8).type());
-        assertEquals("12.5", tokens.get(8).lexeme());
+        assertEquals(TokenType.STRING, tokens.get(5).type());
+        assertEquals("abc", tokens.get(5).lexeme());
+        assertEquals(TokenType.NUMBER, tokens.get(7).type());
+        assertEquals("12.5", tokens.get(7).lexeme());
     }
 
 
