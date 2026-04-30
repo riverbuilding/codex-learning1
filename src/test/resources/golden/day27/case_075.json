@@ -1,0 +1,20 @@
+{
+  "name": "day27_case_075",
+  "script": "SELECT 75 AS value;",
+  "expected": {
+    "columns": [
+      "value"
+    ],
+    "rows": [
+      [
+        "75"
+      ]
+    ],
+    "errorCategory": null,
+    "errorMessage": null,
+    "metadata": {
+      "phase": "day27",
+      "case": "075"
+    }
+  }
+}
