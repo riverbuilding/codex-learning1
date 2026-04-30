@@ -4,6 +4,31 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class Parser {
+    public InsertStatement parseInsert(String sql) {
+        List<Token> tokens = new Tokenizer().tokenize(sql);
+        Cursor cursor = new Cursor(tokens);
+
+        cursor.expectKeyword("INSERT");
+        cursor.expectKeyword("INTO");
+        String tableName = cursor.expectIdentifier();
+        cursor.expectKeyword("VALUES");
+        cursor.expectSymbol("(");
+
+        List<String> values = new ArrayList<>();
+        while (!cursor.matchSymbol(")")) {
+            values.add(cursor.expectLiteral());
+            if (cursor.matchSymbol(",")) {
+                continue;
+            }
+            cursor.expectSymbol(")");
+            break;
+        }
+
+        cursor.matchSymbol(";");
+        cursor.expectEof();
+        return new InsertStatement(tableName, values);
+    }
+
     public CreateTableStatement parseCreateTable(String sql) {
         List<Token> tokens = new Tokenizer().tokenize(sql);
         Cursor cursor = new Cursor(tokens);
@@ -82,6 +107,15 @@ public final class Parser {
             }
             index++;
             return token.lexeme();
+        }
+
+        private String expectLiteral() {
+            Token token = current();
+            if (token.type() == TokenType.STRING || token.type() == TokenType.NUMBER) {
+                index++;
+                return token.lexeme();
+            }
+            throw fail("Expected literal value");
         }
 
         private void expectEof() {
