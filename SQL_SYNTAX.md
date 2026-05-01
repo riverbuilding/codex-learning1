@@ -25,6 +25,9 @@ This document lists SQL syntax currently recognized by the tokenizer/parser scaf
 - `=`
 - `<`
 - `>`
+- `<=`
+- `>=`
+- `!=`
 
 ## Tokenizer-supported literals
 - Number literals (integer and decimal): e.g. `1`, `12.5`
@@ -43,7 +46,7 @@ This document lists SQL syntax currently recognized by the tokenizer/parser scaf
 ## Not yet supported (current scaffold limitations)
 - Quoted identifiers (`"name"`, `[name]`, `` `name` ``)
 - Escape handling inside string literals
-- Operators/symbols beyond the list above (e.g. `+`, `-`, `/`, `!=`, `<=`, `>=`)
+- Operators/symbols beyond the list above (e.g. `+`, `-`, `/`)
 - Full parser/AST coverage for all SQL grammar forms
 
 This list should be updated as parser/planner milestones are completed.
