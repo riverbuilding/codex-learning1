@@ -1,5 +1,7 @@
 package com.yourorg.sqlite1j.exec;
 
+import com.yourorg.sqlite1j.errors.DbException;
+import com.yourorg.sqlite1j.errors.ErrorParity;
 import com.yourorg.sqlite1j.sql.ColumnDef;
 import com.yourorg.sqlite1j.sql.CreateTableStatement;
 import com.yourorg.sqlite1j.sql.InsertStatement;
@@ -76,6 +78,15 @@ public final class InMemoryDatabase {
 
         throw new IllegalArgumentException("Unsupported statement type: " + stmt.getClass().getName());
     }
+
+    public List<List<DbValue>> executeStatementNormalized(Statement stmt) {
+        try {
+            return executeStatement(stmt);
+        } catch (RuntimeException e) {
+            throw new DbException(ErrorParity.normalizeThrowable(e));
+        }
+    }
+
     public void execute(CreateTableStatement stmt) {
         List<String> columns = new ArrayList<>();
         for (ColumnDef column : stmt.columns()) {
