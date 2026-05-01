@@ -34,9 +34,10 @@ public final class Tokenizer {
                 continue;
             }
 
-            if (isSymbol(c)) {
-                tokens.add(new Token(TokenType.SYMBOL, String.valueOf(c), i));
-                i++;
+            String symbol = readSymbol(input, i);
+            if (symbol != null) {
+                tokens.add(new Token(TokenType.SYMBOL, symbol, i));
+                i += symbol.length();
                 continue;
             }
 
@@ -116,7 +117,21 @@ public final class Tokenizer {
         return Character.isLetter(c) || c == '_';
     }
 
-    private static boolean isSymbol(char c) {
-        return c == ',' || c == ';' || c == '(' || c == ')' || c == '*' || c == '=' || c == '<' || c == '>';
+    private static String readSymbol(String input, int i) {
+        char c = input.charAt(i);
+
+        if (c == '<' || c == '>' || c == '!') {
+            if (i + 1 < input.length() && input.charAt(i + 1) == '=') {
+                return "" + c + '=';
+            }
+            if (c == '!' ) {
+                return "!";
+            }
+        }
+
+        if (c == ',' || c == ';' || c == '(' || c == ')' || c == '*' || c == '=' || c == '<' || c == '>') {
+            return String.valueOf(c);
+        }
+        return null;
     }
 }
