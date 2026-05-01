@@ -24,6 +24,9 @@ class ExpressionEvaluatorTest {
         assertTrue(ev.evaluateWhere(new WhereClause("id", "=", "7"), row));
         assertTrue(ev.evaluateWhere(new WhereClause("id", ">", "6"), row));
         assertTrue(ev.evaluateWhere(new WhereClause("id", "<", "8"), row));
+        assertTrue(ev.evaluateWhere(new WhereClause("id", "!=", "8"), row));
+        assertTrue(ev.evaluateWhere(new WhereClause("id", "<=", "7"), row));
+        assertTrue(ev.evaluateWhere(new WhereClause("id", ">=", "7"), row));
         assertFalse(ev.evaluateWhere(new WhereClause("name", "=", "bob"), row));
     }
 

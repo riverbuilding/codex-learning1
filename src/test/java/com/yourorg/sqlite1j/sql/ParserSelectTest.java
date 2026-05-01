@@ -30,6 +30,18 @@ class ParserSelectTest {
     }
 
     @Test
+    void parsesSelectWithExtendedComparisonOperators() {
+        SelectStatement notEquals = new Parser().parseSelect("SELECT id FROM users WHERE id != 1;");
+        assertEquals("!=", notEquals.whereClause().operator());
+
+        SelectStatement lessOrEqual = new Parser().parseSelect("SELECT id FROM users WHERE id <= 2;");
+        assertEquals("<=", lessOrEqual.whereClause().operator());
+
+        SelectStatement greaterOrEqual = new Parser().parseSelect("SELECT id FROM users WHERE id >= 3;");
+        assertEquals(">=", greaterOrEqual.whereClause().operator());
+    }
+
+    @Test
     void failsWhenFromMissing() {
         assertThrows(IllegalArgumentException.class,
                 () -> new Parser().parseSelect("SELECT id users"));
