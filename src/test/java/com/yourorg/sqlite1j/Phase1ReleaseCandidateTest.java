@@ -1,11 +1,7 @@
 package com.yourorg.sqlite1j;
 
-import com.yourorg.sqlite1j.errors.DbError;
-import com.yourorg.sqlite1j.errors.ErrorCategory;
 import com.yourorg.sqlite1j.exec.InMemoryDatabase;
 import com.yourorg.sqlite1j.sql.Parser;
-import com.yourorg.sqlite1j.sql.TransactionCommand;
-import com.yourorg.sqlite1j.sql.TransactionStatement;
 import com.yourorg.sqlite1j.types.DbValue;
 import org.junit.jupiter.api.Test;
 
@@ -29,11 +25,9 @@ class Phase1ReleaseCandidateTest {
         assertEquals(1, rows.size());
         assertEquals("bob", rows.get(0).get(0).asText());
 
-        db.execute(new TransactionStatement(TransactionCommand.BEGIN));
-        DbError txError = assertThrows(DbError.class,
-                () -> db.execute(new TransactionStatement(TransactionCommand.BEGIN)));
-        assertEquals(ErrorCategory.TRANSACTION, txError.category());
-        assertTrue(txError.getMessage().toLowerCase().contains("transaction"));
-        db.execute(new TransactionStatement(TransactionCommand.ROLLBACK));
+        db.beginTransaction();
+        IllegalStateException txError = assertThrows(IllegalStateException.class, db::beginTransaction);
+        assertTrue(txError.getMessage().contains("BEGIN requires IDLE state"));
+        db.rollbackTransaction();
     }
 }
