@@ -1,6 +1,6 @@
 package com.yourorg.sqlite1j.sql;
 
-public final class TransactionStatement {
+public final class TransactionStatement implements Statement {
     private final TransactionCommand command;
 
     public TransactionStatement(TransactionCommand command) {
