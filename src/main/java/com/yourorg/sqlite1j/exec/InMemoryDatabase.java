@@ -45,23 +45,31 @@ public final class InMemoryDatabase {
 
 
     public List<List<DbValue>> executeStatement(Statement stmt) {
-        if (stmt instanceof CreateTableStatement createTable) {
-            execute(createTable);
+        if (stmt instanceof CreateTableStatement) {
+            execute((CreateTableStatement) stmt);
             return List.of();
         }
-        if (stmt instanceof InsertStatement insert) {
-            execute(insert);
+        if (stmt instanceof InsertStatement) {
+            execute((InsertStatement) stmt);
             return List.of();
         }
-        if (stmt instanceof SelectStatement select) {
-            return execute(select);
+        if (stmt instanceof SelectStatement) {
+            return execute((SelectStatement) stmt);
         }
-        if (stmt instanceof TransactionStatement transaction) {
-            TransactionCommand command = transaction.command();
+        if (stmt instanceof TransactionStatement) {
+            TransactionCommand command = ((TransactionStatement) stmt).command();
             switch (command) {
-                case BEGIN -> beginTransaction();
-                case COMMIT -> commitTransaction();
-                case ROLLBACK -> rollbackTransaction();
+                case BEGIN:
+                    beginTransaction();
+                    break;
+                case COMMIT:
+                    commitTransaction();
+                    break;
+                case ROLLBACK:
+                    rollbackTransaction();
+                    break;
+                default:
+                    throw new IllegalArgumentException("Unsupported transaction command: " + command);
             }
             return List.of();
         }
