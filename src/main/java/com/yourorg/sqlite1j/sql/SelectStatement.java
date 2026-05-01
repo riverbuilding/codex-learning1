@@ -2,7 +2,7 @@ package com.yourorg.sqlite1j.sql;
 
 import java.util.List;
 
-public final class SelectStatement {
+public final class SelectStatement implements Statement {
     private final List<String> projections;
     private final String fromTable;
     private final WhereClause whereClause;

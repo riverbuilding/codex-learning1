@@ -2,7 +2,7 @@ package com.yourorg.sqlite1j.sql;
 
 import java.util.List;
 
-public final class InsertStatement {
+public final class InsertStatement implements Statement {
     private final String tableName;
     private final List<String> values;
 

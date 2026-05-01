@@ -4,6 +4,9 @@ import com.yourorg.sqlite1j.sql.ColumnDef;
 import com.yourorg.sqlite1j.sql.CreateTableStatement;
 import com.yourorg.sqlite1j.sql.InsertStatement;
 import com.yourorg.sqlite1j.sql.SelectStatement;
+import com.yourorg.sqlite1j.sql.Statement;
+import com.yourorg.sqlite1j.sql.TransactionCommand;
+import com.yourorg.sqlite1j.sql.TransactionStatement;
 import com.yourorg.sqlite1j.txn.TransactionManager;
 import com.yourorg.sqlite1j.types.DbValue;
 
@@ -40,6 +43,31 @@ public final class InMemoryDatabase {
         txSnapshotRows = null;
     }
 
+
+    public List<List<DbValue>> executeStatement(Statement stmt) {
+        if (stmt instanceof CreateTableStatement createTable) {
+            execute(createTable);
+            return List.of();
+        }
+        if (stmt instanceof InsertStatement insert) {
+            execute(insert);
+            return List.of();
+        }
+        if (stmt instanceof SelectStatement select) {
+            return execute(select);
+        }
+        if (stmt instanceof TransactionStatement transaction) {
+            TransactionCommand command = transaction.command();
+            switch (command) {
+                case BEGIN -> beginTransaction();
+                case COMMIT -> commitTransaction();
+                case ROLLBACK -> rollbackTransaction();
+            }
+            return List.of();
+        }
+
+        throw new IllegalArgumentException("Unsupported statement type: " + stmt.getClass().getName());
+    }
     public void execute(CreateTableStatement stmt) {
         List<String> columns = new ArrayList<>();
         for (ColumnDef column : stmt.columns()) {
