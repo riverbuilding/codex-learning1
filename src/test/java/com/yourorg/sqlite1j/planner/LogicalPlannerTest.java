@@ -67,4 +67,15 @@ class LogicalPlannerTest {
         assertEquals("Update", updatePlan.nodeType());
         assertEquals("Delete", deletePlan.nodeType());
     }
+
+    @Test
+    void plansAggregateNodeForAggregateSelect() {
+        SchemaCatalog catalog = new SchemaCatalog();
+        catalog.register(new TableSchema("users", Set.of("id")));
+        SelectStatement stmt = new Parser().parseSelect("SELECT COUNT(*) FROM users;");
+        BoundSelect bound = new NameBinder().bindSelect(stmt, catalog);
+
+        LogicalPlanNode plan = new LogicalPlanner().planSelect(bound);
+        assertEquals("Aggregate", plan.nodeType());
+    }
 }

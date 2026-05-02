@@ -51,4 +51,21 @@ class InMemoryDatabaseTest {
         assertEquals(1L, rows.get(0).get(0).asInteger());
         assertEquals(2L, rows.get(1).get(0).asInteger());
     }
+
+    @Test
+    void supportsCountMinMaxAggregatesWithNullSkipping() {
+        Parser parser = new Parser();
+        InMemoryDatabase db = new InMemoryDatabase();
+        db.execute(parser.parseCreateTable("CREATE TABLE t (id INT, score INT);"));
+        db.execute(parser.parseInsert("INSERT INTO t VALUES (1, 7);"));
+        db.execute(parser.parseInsert("INSERT INTO t VALUES (2, 3);"));
+        db.execute(parser.parseInsert("INSERT INTO t VALUES (3, 9);"));
+
+        List<List<DbValue>> rows = db.execute(parser.parseSelect("SELECT COUNT(*), COUNT(score), MIN(score), MAX(score) FROM t WHERE id >= 2;"));
+        assertEquals(1, rows.size());
+        assertEquals(2L, rows.get(0).get(0).asInteger());
+        assertEquals(2L, rows.get(0).get(1).asInteger());
+        assertEquals(3L, rows.get(0).get(2).asInteger());
+        assertEquals(9L, rows.get(0).get(3).asInteger());
+    }
 }

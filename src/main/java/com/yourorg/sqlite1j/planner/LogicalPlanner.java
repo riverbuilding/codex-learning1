@@ -13,7 +13,11 @@ public final class LogicalPlanner {
         if (stmt.whereClause() != null) {
             current = new FilterNode(current, stmt.whereClause());
         }
-        current = new ProjectNode(current, stmt.projections());
+        if (containsAggregate(stmt.projections())) {
+            current = new AggregateNode(current, stmt.projections());
+        } else {
+            current = new ProjectNode(current, stmt.projections());
+        }
         if (!stmt.orderBy().isEmpty()) {
             current = new SortNode(current, stmt.orderBy());
         }
@@ -33,5 +37,15 @@ public final class LogicalPlanner {
 
     public LogicalPlanNode planDelete(DeleteStatement delete) {
         return new DeleteNode(delete.tableName());
+    }
+
+    private boolean containsAggregate(java.util.List<String> projections) {
+        for (String projection : projections) {
+            String upper = projection.toUpperCase();
+            if (upper.startsWith("COUNT(") || upper.startsWith("MIN(") || upper.startsWith("MAX(")) {
+                return true;
+            }
+        }
+        return false;
     }
 }

@@ -33,9 +33,9 @@ public final class Parser {
         if (cursor.matchSymbol("*")) {
             projections.add("*");
         } else {
-            projections.add(cursor.expectIdentifier());
+            projections.add(parseProjection(cursor));
             while (cursor.matchSymbol(",")) {
-                projections.add(cursor.expectIdentifier());
+                projections.add(parseProjection(cursor));
             }
         }
 
@@ -86,6 +86,21 @@ public final class Parser {
             ascending = false;
         }
         return new SelectStatement.OrderByTerm(column, ascending);
+    }
+
+    private String parseProjection(Cursor cursor) {
+        String name = cursor.expectIdentifierOrKeyword();
+        if (cursor.matchSymbol("(")) {
+            String argument;
+            if (cursor.matchSymbol("*")) {
+                argument = "*";
+            } else {
+                argument = cursor.expectIdentifier();
+            }
+            cursor.expectSymbol(")");
+            return name.toUpperCase() + "(" + argument + ")";
+        }
+        return name;
     }
 
     public InsertStatement parseInsert(String sql) {

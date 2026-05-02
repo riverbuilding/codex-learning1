@@ -25,6 +25,10 @@ This document defines externally observable behavior that the Java rewrite must 
 - `ORDER BY` is applied before `LIMIT`.
 - `ORDER BY` uses stable sorting; ties preserve original scan/insertion order.
 - `NULL` values sort last for both ascending and descending ordering in this phase.
+- Aggregates supported in this phase: `COUNT(*)`, `COUNT(expr)`, `MIN(expr)`, `MAX(expr)`.
+- `COUNT(*)` counts all filtered rows; `COUNT(expr)` counts only non-NULL expression values.
+- `MIN(expr)`/`MAX(expr)` ignore NULL values; when all values are NULL (or input is empty), result is `NULL`.
+- Mixing aggregate and non-aggregate projections without grouping is rejected with a deterministic error.
 
 ## 4.1) Row Mutation Semantics (Phase 3)
 - `UPDATE <table> SET ... [WHERE ...]` mutates every row matching `WHERE`; without `WHERE`, all rows are candidates.

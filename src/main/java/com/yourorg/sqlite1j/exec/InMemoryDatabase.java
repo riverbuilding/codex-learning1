@@ -150,6 +150,7 @@ public final class InMemoryDatabase {
 
     public List<List<DbValue>> execute(SelectStatement stmt) {
         requiredSchema(stmt.fromTable());
+        ensureSupportedAggregateProjectionMix(stmt.projections());
         List<List<DbValue>> out = new ArrayList<>();
         List<RowWithIndex> matched = new ArrayList<>();
         int idx = 0;
@@ -167,12 +168,90 @@ public final class InMemoryDatabase {
             matched.sort(rowComparator(stmt.orderBy()));
         }
 
+        if (containsAggregate(stmt.projections())) {
+            out.add(computeAggregateRow(stmt.projections(), matched));
+            return out;
+        }
+
         Integer limit = stmt.limit();
         int upper = limit == null ? matched.size() : Math.min(limit, matched.size());
         for (int i = 0; i < upper; i++) {
             out.add(evaluator.project(stmt.projections(), matched.get(i).row));
         }
         return out;
+    }
+
+    private List<DbValue> computeAggregateRow(List<String> projections, List<RowWithIndex> rows) {
+        List<DbValue> out = new ArrayList<>();
+        for (String projection : projections) {
+            out.add(computeAggregateValue(projection, rows));
+        }
+        return out;
+    }
+
+    private DbValue computeAggregateValue(String projection, List<RowWithIndex> rows) {
+        String upper = projection.toUpperCase();
+        int open = projection.indexOf('(');
+        int close = projection.lastIndexOf(')');
+        String arg = projection.substring(open + 1, close).trim();
+        if (upper.startsWith("COUNT(")) {
+            if ("*".equals(arg)) {
+                return DbValue.ofInteger(rows.size());
+            }
+            long count = 0;
+            for (RowWithIndex row : rows) {
+                DbValue value = row.row.get(arg);
+                if (value != null && !value.isNull()) {
+                    count++;
+                }
+            }
+            return DbValue.ofInteger(count);
+        }
+        if (upper.startsWith("MIN(") || upper.startsWith("MAX(")) {
+            DbValue best = null;
+            for (RowWithIndex row : rows) {
+                DbValue value = row.row.get(arg);
+                if (value == null || value.isNull()) {
+                    continue;
+                }
+                if (best == null) {
+                    best = value;
+                    continue;
+                }
+                int cmp = compareForOrder(value, best);
+                if ((upper.startsWith("MIN(") && cmp < 0) || (upper.startsWith("MAX(") && cmp > 0)) {
+                    best = value;
+                }
+            }
+            return best == null ? DbValue.nullValue() : best;
+        }
+        throw new IllegalArgumentException("Unsupported aggregate projection: " + projection);
+    }
+
+    private boolean containsAggregate(List<String> projections) {
+        for (String projection : projections) {
+            String upper = projection.toUpperCase();
+            if (upper.startsWith("COUNT(") || upper.startsWith("MIN(") || upper.startsWith("MAX(")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void ensureSupportedAggregateProjectionMix(List<String> projections) {
+        boolean hasAggregate = false;
+        boolean hasNonAggregate = false;
+        for (String projection : projections) {
+            String upper = projection.toUpperCase();
+            if (upper.startsWith("COUNT(") || upper.startsWith("MIN(") || upper.startsWith("MAX(")) {
+                hasAggregate = true;
+            } else {
+                hasNonAggregate = true;
+            }
+        }
+        if (hasAggregate && hasNonAggregate) {
+            throw new IllegalArgumentException("Unsupported aggregate/non-aggregate projection mix without GROUP BY");
+        }
     }
 
     private Comparator<RowWithIndex> rowComparator(List<SelectStatement.OrderByTerm> terms) {

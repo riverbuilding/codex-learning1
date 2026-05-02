@@ -52,4 +52,14 @@ class ErrorNormalizationIntegrationTest {
         DbException error = assertThrows(DbException.class, () -> runner.execute("SELECT id FROM t LIMIT 'x';"));
         assertEquals(ErrorCategory.PARSE, error.error().category());
     }
+
+    @Test
+    void normalizesAggregateMixWithoutGroupingAsSchemaError() {
+        SqlCommandRunner runner = new SqlCommandRunner(new Parser(), new InMemoryDatabase());
+        runner.execute("CREATE TABLE t (id INTEGER);");
+        runner.execute("INSERT INTO t VALUES (1);");
+
+        DbException error = assertThrows(DbException.class, () -> runner.execute("SELECT COUNT(*), id FROM t;"));
+        assertEquals(ErrorCategory.SCHEMA, error.error().category());
+    }
 }

@@ -45,6 +45,15 @@ class ParserSelectTest {
     }
 
     @Test
+    void parsesAggregateProjections() {
+        SelectStatement stmt = new Parser().parseSelect("SELECT COUNT(*), COUNT(id), MIN(age), MAX(age) FROM users;");
+        assertEquals("COUNT(*)", stmt.projections().get(0));
+        assertEquals("COUNT(id)", stmt.projections().get(1));
+        assertEquals("MIN(age)", stmt.projections().get(2));
+        assertEquals("MAX(age)", stmt.projections().get(3));
+    }
+
+    @Test
     void parsesSelectWithExtendedComparisonOperators() {
         SelectStatement notEquals = new Parser().parseSelect("SELECT id FROM users WHERE id != 1;");
         assertEquals("!=", notEquals.whereClause().operator());
