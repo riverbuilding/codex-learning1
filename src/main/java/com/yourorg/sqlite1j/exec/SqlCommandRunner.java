@@ -28,19 +28,24 @@ public final class SqlCommandRunner {
     }
 
     private Statement parseStatement(String sql) {
-        String normalized = sql.trim().toUpperCase();
-        if (normalized.startsWith("SELECT")) {
-            return parser.parseSelect(sql);
+        try {
+            String normalized = sql.trim().toUpperCase();
+            if (normalized.startsWith("SELECT")) {
+                return parser.parseSelect(sql);
+            }
+            if (normalized.startsWith("INSERT")) {
+                return parser.parseInsert(sql);
+            }
+            if (normalized.startsWith("CREATE TABLE")) {
+                return parser.parseCreateTable(sql);
+            }
+            if (normalized.startsWith("BEGIN") || normalized.startsWith("COMMIT") || normalized.startsWith("ROLLBACK")) {
+                return parser.parseTransactionControl(sql);
+            }
+            throw new IllegalArgumentException("Expected SQL statement type (CREATE/INSERT/SELECT/BEGIN/COMMIT/ROLLBACK)");
         }
-        if (normalized.startsWith("INSERT")) {
-            return parser.parseInsert(sql);
+        catch (RuntimeException e) {
+            throw new DbException(ErrorParity.normalizeThrowable(e));
         }
-        if (normalized.startsWith("CREATE TABLE")) {
-            return parser.parseCreateTable(sql);
-        }
-        if (normalized.startsWith("BEGIN") || normalized.startsWith("COMMIT") || normalized.startsWith("ROLLBACK")) {
-            return parser.parseTransactionControl(sql);
-        }
-        throw new IllegalArgumentException("Expected SQL statement type (CREATE/INSERT/SELECT/BEGIN/COMMIT/ROLLBACK)");
     }
 }

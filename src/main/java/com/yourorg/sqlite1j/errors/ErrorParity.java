@@ -13,7 +13,8 @@ public final class ErrorParity {
         String lower = msg.toLowerCase();
 
         if (t instanceof IllegalArgumentException) {
-            if (lower.contains("unknown table") || lower.contains("unknown column") || lower.contains("arity")) {
+            if (lower.contains("unknown table") || lower.contains("unknown column") || lower.contains("arity")
+                    || lower.contains("value count does not match column count") || lower.contains("column count")) {
                 return new DbError(ErrorCategory.SCHEMA, "SCHEMA_ERROR", msg);
             }
             if (lower.contains("expected") || lower.contains("unterminated") || lower.contains("unexpected character")) {
