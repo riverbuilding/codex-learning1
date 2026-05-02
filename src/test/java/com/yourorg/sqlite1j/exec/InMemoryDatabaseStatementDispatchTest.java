@@ -52,6 +52,17 @@ class InMemoryDatabaseStatementDispatchTest {
     }
 
     @Test
+    void rejectsNestedBeginDeterministically() {
+        InMemoryDatabase db = new InMemoryDatabase();
+        Parser parser = new Parser();
+        db.executeStatementNormalized(parser.parseTransactionControl("BEGIN;"));
+
+        DbException error = assertThrows(DbException.class,
+                () -> db.executeStatementNormalized(parser.parseTransactionControl("BEGIN;")));
+        assertTrue(error.getMessage().contains("Nested transactions are not supported"));
+    }
+
+    @Test
     void throwsDeterministicErrorForUnknownStatementType() {
         InMemoryDatabase db = new InMemoryDatabase();
 

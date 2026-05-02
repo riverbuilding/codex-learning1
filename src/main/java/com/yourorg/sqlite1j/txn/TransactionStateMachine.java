@@ -8,6 +8,9 @@ public final class TransactionStateMachine {
     }
 
     public void begin() {
+        if (state == TransactionState.ACTIVE) {
+            throw new IllegalStateException("Nested transactions are not supported; use COMMIT or ROLLBACK before BEGIN");
+        }
         ensureState(TransactionState.IDLE, "BEGIN requires IDLE state");
         state = TransactionState.ACTIVE;
     }

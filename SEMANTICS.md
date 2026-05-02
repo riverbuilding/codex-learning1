@@ -18,6 +18,8 @@ This document defines externally observable behavior that the Java rewrite must 
 - `COMMIT` atomically makes all in-transaction changes visible.
 - `ROLLBACK` discards all in-transaction changes.
 - Statements outside explicit transactions execute in auto-commit mode.
+- Nested transactions are rejected deterministically (`BEGIN` while active is a transaction-state error).
+- Savepoint commands (`SAVEPOINT`, `RELEASE`, `ROLLBACK TO`) are intentionally not supported in this phase.
 
 ## 4) Query Result Semantics
 - For scoped `SELECT` without `ORDER BY`, row order is implementation-defined.
