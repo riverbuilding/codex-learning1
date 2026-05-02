@@ -17,7 +17,8 @@ public final class ErrorParity {
                     || lower.contains("value count does not match column count") || lower.contains("column count")) {
                 return new DbError(ErrorCategory.SCHEMA, "SCHEMA_ERROR", msg);
             }
-            if (lower.contains("expected") || lower.contains("unterminated") || lower.contains("unexpected character")) {
+            if (lower.contains("expected") || lower.contains("unterminated") || lower.contains("unexpected character")
+                    || lower.contains("unsupported statement type")) {
                 return new DbError(ErrorCategory.PARSE, "PARSE_ERROR", msg);
             }
         }

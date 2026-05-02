@@ -1,5 +1,6 @@
 package com.yourorg.sqlite1j.exec;
 
+import com.yourorg.sqlite1j.errors.DbException;
 import com.yourorg.sqlite1j.sql.Parser;
 import com.yourorg.sqlite1j.sql.Statement;
 import com.yourorg.sqlite1j.types.DbValue;
@@ -54,9 +55,9 @@ class InMemoryDatabaseStatementDispatchTest {
     void throwsDeterministicErrorForUnknownStatementType() {
         InMemoryDatabase db = new InMemoryDatabase();
 
-        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+        DbException error = assertThrows(DbException.class,
                 () -> db.executeStatementNormalized(new Statement() { }));
 
-        assertTrue(error.getMessage().startsWith("Unsupported statement type:"));
+        assertTrue(error.getMessage().startsWith("PARSE:PARSE_ERROR - Unsupported statement type"));
     }
 }
