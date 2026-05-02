@@ -18,11 +18,11 @@ class InMemoryDatabaseStatementDispatchTest {
         InMemoryDatabase db = new InMemoryDatabase();
         Parser parser = new Parser();
 
-        db.executeStatement(parser.parseCreateTable("CREATE TABLE users (name TEXT, age INTEGER);"));
-        db.executeStatement(parser.parseInsert("INSERT INTO users VALUES ('alice', 30);"));
-        db.executeStatement(parser.parseInsert("INSERT INTO users VALUES ('bob', 20);"));
+        db.executeStatementNormalized(parser.parseCreateTable("CREATE TABLE users (name TEXT, age INTEGER);"));
+        db.executeStatementNormalized(parser.parseInsert("INSERT INTO users VALUES ('alice', 30);"));
+        db.executeStatementNormalized(parser.parseInsert("INSERT INTO users VALUES ('bob', 20);"));
 
-        List<List<DbValue>> rows = db.executeStatement(parser.parseSelect("SELECT name FROM users WHERE age > 25;"));
+        List<List<DbValue>> rows = db.executeStatementNormalized(parser.parseSelect("SELECT name FROM users WHERE age > 25;"));
 
         assertEquals(1, rows.size());
         assertEquals(DbValue.ofText("alice"), rows.get(0).get(0));
@@ -33,19 +33,19 @@ class InMemoryDatabaseStatementDispatchTest {
         InMemoryDatabase db = new InMemoryDatabase();
         Parser parser = new Parser();
 
-        db.executeStatement(parser.parseCreateTable("CREATE TABLE t (name TEXT, age INTEGER);"));
-        db.executeStatement(parser.parseTransactionControl("BEGIN;"));
-        db.executeStatement(parser.parseInsert("INSERT INTO t VALUES ('alice', 30);"));
-        db.executeStatement(parser.parseTransactionControl("ROLLBACK;"));
+        db.executeStatementNormalized(parser.parseCreateTable("CREATE TABLE t (name TEXT, age INTEGER);"));
+        db.executeStatementNormalized(parser.parseTransactionControl("BEGIN;"));
+        db.executeStatementNormalized(parser.parseInsert("INSERT INTO t VALUES ('alice', 30);"));
+        db.executeStatementNormalized(parser.parseTransactionControl("ROLLBACK;"));
 
-        List<List<DbValue>> rowsAfterRollback = db.executeStatement(parser.parseSelect("SELECT name FROM t;"));
+        List<List<DbValue>> rowsAfterRollback = db.executeStatementNormalized(parser.parseSelect("SELECT name FROM t;"));
         assertEquals(0, rowsAfterRollback.size());
 
-        db.executeStatement(parser.parseTransactionControl("BEGIN;"));
-        db.executeStatement(parser.parseInsert("INSERT INTO t VALUES ('bob', 20);"));
-        db.executeStatement(parser.parseTransactionControl("COMMIT;"));
+        db.executeStatementNormalized(parser.parseTransactionControl("BEGIN;"));
+        db.executeStatementNormalized(parser.parseInsert("INSERT INTO t VALUES ('bob', 20);"));
+        db.executeStatementNormalized(parser.parseTransactionControl("COMMIT;"));
 
-        List<List<DbValue>> rowsAfterCommit = db.executeStatement(parser.parseSelect("SELECT name FROM t;"));
+        List<List<DbValue>> rowsAfterCommit = db.executeStatementNormalized(parser.parseSelect("SELECT name FROM t;"));
         assertEquals(1, rowsAfterCommit.size());
         assertEquals(DbValue.ofText("bob"), rowsAfterCommit.get(0).get(0));
     }
@@ -55,7 +55,7 @@ class InMemoryDatabaseStatementDispatchTest {
         InMemoryDatabase db = new InMemoryDatabase();
 
         IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
-                () -> db.executeStatement(new Statement() { }));
+                () -> db.executeStatementNormalized(new Statement() { }));
 
         assertTrue(error.getMessage().startsWith("Unsupported statement type:"));
     }

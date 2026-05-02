@@ -46,7 +46,7 @@ public final class InMemoryDatabase {
     }
 
 
-    public List<List<DbValue>> executeStatement(Statement stmt) {
+    private List<List<DbValue>> executeStatement(Statement stmt) {
         if (stmt instanceof CreateTableStatement) {
             execute((CreateTableStatement) stmt);
             return List.of();

@@ -24,6 +24,7 @@ public final class SqlCommandRunner {
             return db.executeStatementNormalized(stmt);
         } catch (DbException e) {
             throw e;
+        }
     }
 
     private Statement parseStatement(String sql) {
