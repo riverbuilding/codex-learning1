@@ -23,6 +23,12 @@ This document defines externally observable behavior that the Java rewrite must 
 - For scoped `SELECT` without `ORDER BY`, row order is implementation-defined.
 - Projection and filter semantics must match the reference baseline behavior for supported expressions.
 
+## 4.1) Row Mutation Semantics (Phase 3)
+- `UPDATE <table> SET ... [WHERE ...]` mutates every row matching `WHERE`; without `WHERE`, all rows are candidates.
+- `DELETE FROM <table> [WHERE ...]` removes every row matching `WHERE`; without `WHERE`, all rows are candidates.
+- `WHERE` predicate evaluation and literal coercion in mutation paths are identical to `SELECT`.
+- A deterministic affected-row count is recorded as the number of rows matched by the mutation predicate.
+
 ## 5) Error Categories
 - Parse error: invalid syntax.
 - Schema error: unknown table/column, invalid arity.

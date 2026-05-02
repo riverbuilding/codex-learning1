@@ -11,6 +11,9 @@ This document lists SQL syntax currently recognized by the tokenizer/parser scaf
 - `VALUES`
 - `CREATE`
 - `TABLE`
+- `UPDATE`
+- `SET`
+- `DELETE`
 - `BEGIN`
 - `COMMIT`
 - `ROLLBACK`
@@ -41,6 +44,8 @@ This document lists SQL syntax currently recognized by the tokenizer/parser scaf
 - `SELECT a, b FROM t WHERE a = 1;`
 - `INSERT INTO t VALUES ('abc', 12.5);`
 - `CREATE TABLE users(id, name);`
+- `UPDATE users SET name = 'alice' WHERE id = 1;`
+- `DELETE FROM users WHERE id = 1;`
 - `BEGIN; COMMIT;`
 
 ## Not yet supported (current scaffold limitations)

@@ -80,6 +80,61 @@ public final class Parser {
         return new InsertStatement(tableName, values);
     }
 
+    public UpdateStatement parseUpdate(String sql) {
+        List<Token> tokens = new Tokenizer().tokenize(sql);
+        Cursor cursor = new Cursor(tokens);
+
+        cursor.expectKeyword("UPDATE");
+        String tableName = cursor.expectIdentifier();
+        cursor.expectKeyword("SET");
+
+        List<UpdateStatement.Assignment> assignments = new ArrayList<>();
+        assignments.add(parseAssignment(cursor));
+        while (cursor.matchSymbol(",")) {
+            assignments.add(parseAssignment(cursor));
+        }
+
+        WhereClause where = null;
+        if (cursor.matchKeyword("WHERE")) {
+            String column = cursor.expectIdentifier();
+            String operator = cursor.expectComparisonOperator();
+            String literal = cursor.expectLiteral();
+            where = new WhereClause(column, operator, literal);
+        }
+
+        cursor.matchSymbol(";");
+        cursor.expectEof();
+        return new UpdateStatement(tableName, assignments, where);
+    }
+
+    public DeleteStatement parseDelete(String sql) {
+        List<Token> tokens = new Tokenizer().tokenize(sql);
+        Cursor cursor = new Cursor(tokens);
+
+        cursor.expectKeyword("DELETE");
+        cursor.expectKeyword("FROM");
+        String tableName = cursor.expectIdentifier();
+
+        WhereClause where = null;
+        if (cursor.matchKeyword("WHERE")) {
+            String column = cursor.expectIdentifier();
+            String operator = cursor.expectComparisonOperator();
+            String literal = cursor.expectLiteral();
+            where = new WhereClause(column, operator, literal);
+        }
+
+        cursor.matchSymbol(";");
+        cursor.expectEof();
+        return new DeleteStatement(tableName, where);
+    }
+
+    private UpdateStatement.Assignment parseAssignment(Cursor cursor) {
+        String column = cursor.expectIdentifier();
+        cursor.expectSymbol("=");
+        String literal = cursor.expectLiteral();
+        return new UpdateStatement.Assignment(column, literal);
+    }
+
     public CreateTableStatement parseCreateTable(String sql) {
         List<Token> tokens = new Tokenizer().tokenize(sql);
         Cursor cursor = new Cursor(tokens);

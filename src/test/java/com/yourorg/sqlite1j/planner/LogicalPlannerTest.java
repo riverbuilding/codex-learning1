@@ -3,6 +3,8 @@ package com.yourorg.sqlite1j.planner;
 import com.yourorg.sqlite1j.sql.InsertStatement;
 import com.yourorg.sqlite1j.sql.Parser;
 import com.yourorg.sqlite1j.sql.SelectStatement;
+import com.yourorg.sqlite1j.sql.UpdateStatement;
+import com.yourorg.sqlite1j.sql.DeleteStatement;
 import org.junit.jupiter.api.Test;
 
 import java.util.Set;
@@ -41,5 +43,18 @@ class LogicalPlannerTest {
         InsertNode insert = (InsertNode) plan;
         assertEquals("users", insert.tableName());
         assertEquals(2, insert.values().size());
+    }
+
+    @Test
+    void plansUpdateAndDeleteNodes() {
+        Parser parser = new Parser();
+        UpdateStatement update = parser.parseUpdate("UPDATE users SET name = 'alice' WHERE id = 1;");
+        DeleteStatement delete = parser.parseDelete("DELETE FROM users WHERE id = 1;");
+
+        LogicalPlanNode updatePlan = new LogicalPlanner().planUpdate(update);
+        LogicalPlanNode deletePlan = new LogicalPlanner().planDelete(delete);
+
+        assertEquals("Update", updatePlan.nodeType());
+        assertEquals("Delete", deletePlan.nodeType());
     }
 }

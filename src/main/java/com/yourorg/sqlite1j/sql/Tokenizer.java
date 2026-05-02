@@ -17,6 +17,9 @@ public final class Tokenizer {
         KEYWORDS.add("VALUES");
         KEYWORDS.add("CREATE");
         KEYWORDS.add("TABLE");
+        KEYWORDS.add("UPDATE");
+        KEYWORDS.add("SET");
+        KEYWORDS.add("DELETE");
         KEYWORDS.add("BEGIN");
         KEYWORDS.add("COMMIT");
         KEYWORDS.add("ROLLBACK");

@@ -6,6 +6,8 @@ import com.yourorg.sqlite1j.sql.ColumnDef;
 import com.yourorg.sqlite1j.sql.CreateTableStatement;
 import com.yourorg.sqlite1j.sql.InsertStatement;
 import com.yourorg.sqlite1j.sql.SelectStatement;
+import com.yourorg.sqlite1j.sql.UpdateStatement;
+import com.yourorg.sqlite1j.sql.DeleteStatement;
 import com.yourorg.sqlite1j.sql.Statement;
 import com.yourorg.sqlite1j.sql.TransactionCommand;
 import com.yourorg.sqlite1j.sql.TransactionStatement;
@@ -24,6 +26,7 @@ public final class InMemoryDatabase {
     private final ExpressionEvaluator evaluator = new ExpressionEvaluator();
     private final TransactionManager tx = new TransactionManager();
     private Map<String, List<Map<String, DbValue>>> txSnapshotRows;
+    private int lastMutationCount;
 
 
     public void beginTransaction() {
@@ -53,6 +56,14 @@ public final class InMemoryDatabase {
         }
         if (stmt instanceof InsertStatement) {
             execute((InsertStatement) stmt);
+            return List.of();
+        }
+        if (stmt instanceof UpdateStatement) {
+            execute((UpdateStatement) stmt);
+            return List.of();
+        }
+        if (stmt instanceof DeleteStatement) {
+            execute((DeleteStatement) stmt);
             return List.of();
         }
         if (stmt instanceof SelectStatement) {
@@ -107,6 +118,33 @@ public final class InMemoryDatabase {
             row.put(columns.get(i), parseLiteral(stmt.values().get(i)));
         }
         rows.get(stmt.tableName()).add(row);
+        lastMutationCount = 1;
+    }
+
+    public void execute(UpdateStatement stmt) {
+        List<String> columns = requiredSchema(stmt.tableName());
+        int affected = 0;
+        for (Map<String, DbValue> row : rows.get(stmt.tableName())) {
+            if (!evaluator.evaluateWhere(stmt.whereClause(), row)) {
+                continue;
+            }
+            for (UpdateStatement.Assignment assignment : stmt.assignments()) {
+                if (!columns.contains(assignment.column())) {
+                    throw new IllegalArgumentException("Unknown column '" + assignment.column() + "' in table " + stmt.tableName());
+                }
+                row.put(assignment.column(), parseLiteral(assignment.literal()));
+            }
+            affected++;
+        }
+        lastMutationCount = affected;
+    }
+
+    public void execute(DeleteStatement stmt) {
+        requiredSchema(stmt.tableName());
+        List<Map<String, DbValue>> tableRows = rows.get(stmt.tableName());
+        int originalSize = tableRows.size();
+        tableRows.removeIf(row -> evaluator.evaluateWhere(stmt.whereClause(), row));
+        lastMutationCount = originalSize - tableRows.size();
     }
 
     public List<List<DbValue>> execute(SelectStatement stmt) {
@@ -152,5 +190,9 @@ public final class InMemoryDatabase {
         } catch (NumberFormatException ignore) {
             return DbValue.ofText(literal);
         }
+    }
+
+    public int lastMutationCount() {
+        return lastMutationCount;
     }
 }
