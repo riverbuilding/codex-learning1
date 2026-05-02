@@ -30,9 +30,9 @@ class TokenizerTest {
 
     @Test
     void tokenizesAllSupportedSymbols() {
-        String sql = ", ; ( ) * = < >";
+        String sql = ", ; ( ) * = < > <= >= != !";
         List<Token> tokens = new Tokenizer().tokenize(sql);
-        String[] expected = {",", ";", "(", ")", "*", "=", "<", ">"};
+        String[] expected = {",", ";", "(", ")", "*", "=", "<", ">", "<=", ">=", "!=", "!"};
 
         for (int i = 0; i < expected.length; i++) {
             assertEquals(TokenType.SYMBOL, tokens.get(i).type());

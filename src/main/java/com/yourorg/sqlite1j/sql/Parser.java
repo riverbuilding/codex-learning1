@@ -180,11 +180,15 @@ public final class Parser {
 
         private String expectComparisonOperator() {
             Token token = current();
-            if (token.type() == TokenType.SYMBOL && ("=".equals(token.lexeme()) || "<".equals(token.lexeme()) || ">".equals(token.lexeme()))) {
-                index++;
-                return token.lexeme();
+            if (token.type() == TokenType.SYMBOL) {
+                String op = token.lexeme();
+                if ("=".equals(op) || "<".equals(op) || ">".equals(op)
+                        || "!=".equals(op) || "<=".equals(op) || ">=".equals(op)) {
+                    index++;
+                    return op;
+                }
             }
-            throw fail("Expected comparison operator (=, <, >)");
+            throw fail("Expected comparison operator (=, <, >, !=, <=, >=)");
         }
 
         private void expectEof() {

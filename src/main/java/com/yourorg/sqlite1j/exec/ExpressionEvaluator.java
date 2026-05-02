@@ -24,10 +24,16 @@ public final class ExpressionEvaluator {
         switch (where.operator()) {
             case "=":
                 return cmp == 0;
+            case "!=":
+                return cmp != 0;
             case "<":
                 return cmp < 0;
+            case "<=":
+                return cmp <= 0;
             case ">":
                 return cmp > 0;
+            case ">=":
+                return cmp >= 0;
             default:
                 throw new IllegalArgumentException("Unsupported operator: " + where.operator());
         }

@@ -1,5 +1,7 @@
 package com.yourorg.sqlite1j.exec;
 
+import com.yourorg.sqlite1j.errors.DbException;
+import com.yourorg.sqlite1j.errors.ErrorParity;
 import com.yourorg.sqlite1j.sql.ColumnDef;
 import com.yourorg.sqlite1j.sql.CreateTableStatement;
 import com.yourorg.sqlite1j.sql.InsertStatement;
@@ -45,29 +47,46 @@ public final class InMemoryDatabase {
 
 
     public List<List<DbValue>> executeStatement(Statement stmt) {
-        if (stmt instanceof CreateTableStatement createTable) {
-            execute(createTable);
+        if (stmt instanceof CreateTableStatement) {
+            execute((CreateTableStatement) stmt);
             return List.of();
         }
-        if (stmt instanceof InsertStatement insert) {
-            execute(insert);
+        if (stmt instanceof InsertStatement) {
+            execute((InsertStatement) stmt);
             return List.of();
         }
-        if (stmt instanceof SelectStatement select) {
-            return execute(select);
+        if (stmt instanceof SelectStatement) {
+            return execute((SelectStatement) stmt);
         }
-        if (stmt instanceof TransactionStatement transaction) {
-            TransactionCommand command = transaction.command();
+        if (stmt instanceof TransactionStatement) {
+            TransactionCommand command = ((TransactionStatement) stmt).command();
             switch (command) {
-                case BEGIN -> beginTransaction();
-                case COMMIT -> commitTransaction();
-                case ROLLBACK -> rollbackTransaction();
+                case BEGIN:
+                    beginTransaction();
+                    break;
+                case COMMIT:
+                    commitTransaction();
+                    break;
+                case ROLLBACK:
+                    rollbackTransaction();
+                    break;
+                default:
+                    throw new IllegalArgumentException("Unsupported transaction command: " + command);
             }
             return List.of();
         }
 
         throw new IllegalArgumentException("Unsupported statement type: " + stmt.getClass().getName());
     }
+
+    public List<List<DbValue>> executeStatementNormalized(Statement stmt) {
+        try {
+            return executeStatement(stmt);
+        } catch (RuntimeException e) {
+            throw new DbException(ErrorParity.normalizeThrowable(e));
+        }
+    }
+
     public void execute(CreateTableStatement stmt) {
         List<String> columns = new ArrayList<>();
         for (ColumnDef column : stmt.columns()) {

@@ -20,6 +20,14 @@ class ErrorParityTest {
     }
 
     @Test
+    void normalizesInsertArityMessageAsSchemaLikeIllegalArgument() {
+        DbError e = ErrorParity.normalizeThrowable(
+                new IllegalArgumentException("Value count does not match column count for table t"));
+        assertEquals(ErrorCategory.SCHEMA, e.category());
+        assertEquals("SCHEMA_ERROR", e.code());
+    }
+
+    @Test
     void normalizesTransactionState() {
         DbError e = ErrorParity.normalizeThrowable(new IllegalStateException("COMMIT requires ACTIVE state"));
         assertEquals(ErrorCategory.TRANSACTION, e.category());
