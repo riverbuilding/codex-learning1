@@ -50,9 +50,42 @@ public final class Parser {
             where = new WhereClause(column, operator, literal);
         }
 
+        List<SelectStatement.OrderByTerm> orderBy = new ArrayList<>();
+        if (cursor.matchKeyword("ORDER")) {
+            cursor.expectKeyword("BY");
+            orderBy.add(parseOrderByTerm(cursor));
+            while (cursor.matchSymbol(",")) {
+                orderBy.add(parseOrderByTerm(cursor));
+            }
+        }
+
+        Integer limit = null;
+        if (cursor.matchKeyword("LIMIT")) {
+            String literal = cursor.expectLiteral();
+            try {
+                limit = Integer.parseInt(literal);
+            } catch (NumberFormatException ex) {
+                throw new IllegalArgumentException("Expected numeric LIMIT value");
+            }
+            if (limit < 0) {
+                throw new IllegalArgumentException("Expected non-negative LIMIT value");
+            }
+        }
+
         cursor.matchSymbol(";");
         cursor.expectEof();
-        return new SelectStatement(projections, fromTable, where);
+        return new SelectStatement(projections, fromTable, where, orderBy, limit);
+    }
+
+    private SelectStatement.OrderByTerm parseOrderByTerm(Cursor cursor) {
+        String column = cursor.expectIdentifier();
+        boolean ascending = true;
+        if (cursor.matchKeyword("ASC")) {
+            ascending = true;
+        } else if (cursor.matchKeyword("DESC")) {
+            ascending = false;
+        }
+        return new SelectStatement.OrderByTerm(column, ascending);
     }
 
     public InsertStatement parseInsert(String sql) {

@@ -20,6 +20,11 @@ public final class NameBinder {
         if (where != null && !table.hasColumn(where.column())) {
             throw new IllegalArgumentException("Unknown column in WHERE: " + where.column());
         }
+        for (SelectStatement.OrderByTerm term : statement.orderBy()) {
+            if (!table.hasColumn(term.column())) {
+                throw new IllegalArgumentException("Unknown column in ORDER BY: " + term.column());
+            }
+        }
 
         return new BoundSelect(statement, table);
     }

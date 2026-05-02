@@ -18,13 +18,23 @@ class LogicalPlannerTest {
         SchemaCatalog catalog = new SchemaCatalog();
         catalog.register(new TableSchema("users", Set.of("id", "name")));
 
-        SelectStatement stmt = new Parser().parseSelect("SELECT id FROM users WHERE name = 'alice';");
+        SelectStatement stmt = new Parser().parseSelect("SELECT id FROM users WHERE name = 'alice' ORDER BY id DESC LIMIT 5;");
         BoundSelect bound = new NameBinder().bindSelect(stmt, catalog);
 
         LogicalPlanNode plan = new LogicalPlanner().planSelect(bound);
-        assertEquals("Project", plan.nodeType());
+        assertEquals("Limit", plan.nodeType());
 
-        ProjectNode project = (ProjectNode) plan;
+        LimitNode limit = (LimitNode) plan;
+        assertEquals(5, limit.limit());
+        assertTrue(limit.input() instanceof SortNode);
+
+        SortNode sort = (SortNode) limit.input();
+        assertEquals(1, sort.terms().size());
+        assertEquals("id", sort.terms().get(0).column());
+        assertEquals(false, sort.terms().get(0).ascending());
+        assertTrue(sort.input() instanceof ProjectNode);
+
+        ProjectNode project = (ProjectNode) sort.input();
         assertEquals(1, project.projections().size());
         assertEquals("id", project.projections().get(0));
         assertTrue(project.input() instanceof FilterNode);

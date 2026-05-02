@@ -43,4 +43,13 @@ class ErrorNormalizationIntegrationTest {
         DbException error = assertThrows(DbException.class, () -> runner.execute("SELECT id users"));
         assertEquals(ErrorCategory.PARSE, error.error().category());
     }
+
+    @Test
+    void normalizesMalformedLimitAsParseError() {
+        SqlCommandRunner runner = new SqlCommandRunner(new Parser(), new InMemoryDatabase());
+        runner.execute("CREATE TABLE t (id INTEGER);");
+
+        DbException error = assertThrows(DbException.class, () -> runner.execute("SELECT id FROM t LIMIT 'x';"));
+        assertEquals(ErrorCategory.PARSE, error.error().category());
+    }
 }

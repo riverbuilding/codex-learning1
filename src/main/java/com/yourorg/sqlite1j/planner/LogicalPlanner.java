@@ -13,8 +13,14 @@ public final class LogicalPlanner {
         if (stmt.whereClause() != null) {
             current = new FilterNode(current, stmt.whereClause());
         }
-
-        return new ProjectNode(current, stmt.projections());
+        current = new ProjectNode(current, stmt.projections());
+        if (!stmt.orderBy().isEmpty()) {
+            current = new SortNode(current, stmt.orderBy());
+        }
+        if (stmt.limit() != null) {
+            current = new LimitNode(current, stmt.limit());
+        }
+        return current;
     }
 
     public LogicalPlanNode planInsert(InsertStatement insert) {

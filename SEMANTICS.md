@@ -22,6 +22,9 @@ This document defines externally observable behavior that the Java rewrite must 
 ## 4) Query Result Semantics
 - For scoped `SELECT` without `ORDER BY`, row order is implementation-defined.
 - Projection and filter semantics must match the reference baseline behavior for supported expressions.
+- `ORDER BY` is applied before `LIMIT`.
+- `ORDER BY` uses stable sorting; ties preserve original scan/insertion order.
+- `NULL` values sort last for both ascending and descending ordering in this phase.
 
 ## 4.1) Row Mutation Semantics (Phase 3)
 - `UPDATE <table> SET ... [WHERE ...]` mutates every row matching `WHERE`; without `WHERE`, all rows are candidates.

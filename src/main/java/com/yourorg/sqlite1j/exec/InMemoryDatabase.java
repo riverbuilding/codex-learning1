@@ -19,6 +19,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Comparator;
 
 public final class InMemoryDatabase {
     private final Map<String, List<String>> schemas = new HashMap<>();
@@ -150,14 +151,64 @@ public final class InMemoryDatabase {
     public List<List<DbValue>> execute(SelectStatement stmt) {
         requiredSchema(stmt.fromTable());
         List<List<DbValue>> out = new ArrayList<>();
+        List<RowWithIndex> matched = new ArrayList<>();
+        int idx = 0;
 
         for (Map<String, DbValue> row : rows.get(stmt.fromTable())) {
             if (!evaluator.evaluateWhere(stmt.whereClause(), row)) {
+                idx++;
                 continue;
             }
-            out.add(evaluator.project(stmt.projections(), row));
+            matched.add(new RowWithIndex(row, idx));
+            idx++;
+        }
+
+        if (!stmt.orderBy().isEmpty()) {
+            matched.sort(rowComparator(stmt.orderBy()));
+        }
+
+        Integer limit = stmt.limit();
+        int upper = limit == null ? matched.size() : Math.min(limit, matched.size());
+        for (int i = 0; i < upper; i++) {
+            out.add(evaluator.project(stmt.projections(), matched.get(i).row));
         }
         return out;
+    }
+
+    private Comparator<RowWithIndex> rowComparator(List<SelectStatement.OrderByTerm> terms) {
+        return (a, b) -> {
+            for (SelectStatement.OrderByTerm term : terms) {
+                DbValue left = a.row.get(term.column());
+                DbValue right = b.row.get(term.column());
+                int cmp = compareForOrder(left, right);
+                if (cmp != 0) {
+                    return term.ascending() ? cmp : -cmp;
+                }
+            }
+            return Integer.compare(a.index, b.index);
+        };
+    }
+
+    private int compareForOrder(DbValue left, DbValue right) {
+        if (left == null || left.isNull()) {
+            return (right == null || right.isNull()) ? 0 : 1; // NULLS LAST
+        }
+        if (right == null || right.isNull()) {
+            return -1;
+        }
+        String l = left.toString();
+        String r = right.toString();
+        return l.compareTo(r);
+    }
+
+    private static final class RowWithIndex {
+        private final Map<String, DbValue> row;
+        private final int index;
+
+        private RowWithIndex(Map<String, DbValue> row, int index) {
+            this.row = row;
+            this.index = index;
+        }
     }
 
     private List<String> requiredSchema(String tableName) {

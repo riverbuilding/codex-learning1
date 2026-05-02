@@ -50,4 +50,14 @@ class NameBinderTest {
         assertThrows(IllegalArgumentException.class,
                 () -> new NameBinder().bindSelect(stmt, catalog));
     }
+
+    @Test
+    void failsOnUnknownOrderByColumn() {
+        SchemaCatalog catalog = new SchemaCatalog();
+        catalog.register(new TableSchema("users", Set.of("id")));
+        SelectStatement stmt = new Parser().parseSelect("SELECT id FROM users ORDER BY name;");
+
+        assertThrows(IllegalArgumentException.class,
+                () -> new NameBinder().bindSelect(stmt, catalog));
+    }
 }

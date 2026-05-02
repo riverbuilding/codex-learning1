@@ -42,6 +42,7 @@ This document lists SQL syntax currently recognized by the tokenizer/parser scaf
 
 ## Example supported statements (tokenization-level)
 - `SELECT a, b FROM t WHERE a = 1;`
+- `SELECT a, b FROM t WHERE a = 1 ORDER BY b DESC, a ASC LIMIT 10;`
 - `INSERT INTO t VALUES ('abc', 12.5);`
 - `CREATE TABLE users(id, name);`
 - `UPDATE users SET name = 'alice' WHERE id = 1;`

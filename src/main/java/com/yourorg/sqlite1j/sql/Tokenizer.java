@@ -12,6 +12,11 @@ public final class Tokenizer {
         KEYWORDS.add("SELECT");
         KEYWORDS.add("FROM");
         KEYWORDS.add("WHERE");
+        KEYWORDS.add("ORDER");
+        KEYWORDS.add("BY");
+        KEYWORDS.add("LIMIT");
+        KEYWORDS.add("ASC");
+        KEYWORDS.add("DESC");
         KEYWORDS.add("INSERT");
         KEYWORDS.add("INTO");
         KEYWORDS.add("VALUES");
