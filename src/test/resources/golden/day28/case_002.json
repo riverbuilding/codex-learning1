@@ -1,0 +1,11 @@
+{
+  "name": "day28_case_002_less_equal_operator",
+  "script": "CREATE TABLE t (id INT); INSERT INTO t VALUES (1); INSERT INTO t VALUES (2); INSERT INTO t VALUES (3); SELECT id FROM t WHERE id <= 2;",
+  "expected": {
+    "columns": ["id"],
+    "rows": [["1"], ["2"]],
+    "errorCategory": null,
+    "errorMessage": null,
+    "metadata": {"phase": "day28", "focus": "operator_<="}
+  }
+}
