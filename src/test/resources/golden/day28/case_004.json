@@ -1,0 +1,11 @@
+{
+  "name": "day28_case_004_transaction_state_error",
+  "script": "COMMIT;",
+  "expected": {
+    "columns": [],
+    "rows": [],
+    "errorCategory": "TRANSACTION",
+    "errorMessage": "cannot commit - no active transaction",
+    "metadata": {"phase": "day28", "focus": "transaction_state"}
+  }
+}

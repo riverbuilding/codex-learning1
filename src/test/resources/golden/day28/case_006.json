@@ -1,0 +1,11 @@
+{
+  "name": "day28_case_006_schema_error_parity",
+  "script": "SELECT id FROM missing_table;",
+  "expected": {
+    "columns": [],
+    "rows": [],
+    "errorCategory": "SCHEMA",
+    "errorMessage": "no such table",
+    "metadata": {"phase": "day28", "focus": "schema_error"}
+  }
+}

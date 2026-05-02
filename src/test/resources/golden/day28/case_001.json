@@ -1,0 +1,11 @@
+{
+  "name": "day28_case_001_not_equal_operator_true",
+  "script": "CREATE TABLE t (id INT); INSERT INTO t VALUES (1); INSERT INTO t VALUES (2); SELECT id FROM t WHERE id != 1;",
+  "expected": {
+    "columns": ["id"],
+    "rows": [["2"]],
+    "errorCategory": null,
+    "errorMessage": null,
+    "metadata": {"phase": "day28", "focus": "operator_!="}
+  }
+}

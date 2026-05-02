@@ -1,0 +1,11 @@
+{
+  "name": "day28_case_005_parse_error_parity",
+  "script": "SELECT FROM t;",
+  "expected": {
+    "columns": [],
+    "rows": [],
+    "errorCategory": "PARSE",
+    "errorMessage": "Expected identifier",
+    "metadata": {"phase": "day28", "focus": "parse_error"}
+  }
+}

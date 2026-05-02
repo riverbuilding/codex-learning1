@@ -49,7 +49,7 @@ class DifferentialRunnerTest {
 
         DiffResult result = new DifferentialRunner().compare("SELECT 1", left, right);
         assertFalse(result.matches());
-        assertTrue(result.differences().contains("rows differ"));
+        assertTrue(result.differences().stream().anyMatch(diff -> diff.startsWith("rows differ:")));
     }
 
     private static final class StubAdapter implements SqlExecutorAdapter {

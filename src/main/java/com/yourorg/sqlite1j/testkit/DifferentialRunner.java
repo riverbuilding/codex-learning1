@@ -11,19 +11,19 @@ public class DifferentialRunner {
 
         List<String> differences = new ArrayList<>();
         if (!Objects.equals(ref.columns(), cand.columns())) {
-            differences.add("columns differ");
+            differences.add("columns differ: expected=" + ref.columns() + ", actual=" + cand.columns());
         }
         if (!Objects.equals(ref.rows(), cand.rows())) {
-            differences.add("rows differ");
+            differences.add("rows differ: expected=" + ref.rows() + ", actual=" + cand.rows());
         }
         if (!Objects.equals(ref.errorCategory(), cand.errorCategory())) {
-            differences.add("error category differs");
+            differences.add("error category differs: expected=" + ref.errorCategory() + ", actual=" + cand.errorCategory());
         }
         if (!Objects.equals(ref.errorMessage(), cand.errorMessage())) {
-            differences.add("error message differs");
+            differences.add("error message differs: expected=" + ref.errorMessage() + ", actual=" + cand.errorMessage());
         }
         if (!Objects.equals(ref.metadata(), cand.metadata())) {
-            differences.add("metadata differs");
+            differences.add("metadata differs: expected=" + ref.metadata() + ", actual=" + cand.metadata());
         }
         return new DiffResult(differences.isEmpty(), differences);
     }
