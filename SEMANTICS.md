@@ -1,58 +1,53 @@
 # SQLite 1.0 to Java Rewrite — Semantics Contract v1
 
 ## Purpose
-This document defines externally observable behavior that the Java rewrite must preserve for the Phase 1 SQL subset.
+This document defines externally observable behavior currently implemented for the phase-scoped SQL subset.
 
 ## 1) NULL Semantics
-- `NULL` compared with any value using `=` or `!=` yields unknown/null-like predicate outcome.
-- `IS NULL` and `IS NOT NULL` are the supported null-checking predicates.
-- Arithmetic with `NULL` yields `NULL`.
+- NULL handling is deterministic in current evaluator paths.
+- Current parser subset does not include `IS NULL` / `IS NOT NULL` syntax.
 
-## 2) Type Affinity and Coercion
-- Runtime values are represented as: `NULL`, integer, real, text, blob.
-- Numeric coercion is attempted for arithmetic operators when operands are text that can be parsed numerically.
-- Non-coercible text in arithmetic operations results in a deterministic error for Phase 1.
+## 2) Type and Comparison Semantics
+- Runtime values are represented as integer, real, text, and null-like values.
+- Literal parsing supports integer/real/text.
+- Comparison behavior is engine-local and deterministic for supported operators.
 
 ## 3) Transaction Semantics
-- `BEGIN` opens a transaction scope.
-- `COMMIT` atomically makes all in-transaction changes visible.
-- `ROLLBACK` discards all in-transaction changes.
-- Statements outside explicit transactions execute in auto-commit mode.
-- Nested transactions are rejected deterministically (`BEGIN` while active is a transaction-state error).
-- Savepoint commands (`SAVEPOINT`, `RELEASE`, `ROLLBACK TO`) are intentionally not supported in this phase.
+- `BEGIN` starts an explicit transaction.
+- `COMMIT` persists in-transaction changes.
+- `ROLLBACK` restores pre-transaction state snapshot.
+- Nested `BEGIN` is rejected as transaction-state error.
 
 ## 4) Query Result Semantics
-- For scoped `SELECT` without `ORDER BY`, row order is implementation-defined.
-- Projection and filter semantics must match the reference baseline behavior for supported expressions.
-- `ORDER BY` is applied before `LIMIT`.
-- `ORDER BY` uses stable sorting; ties preserve original scan/insertion order.
-- `NULL` values sort last for both ascending and descending ordering in this phase.
-- Aggregates supported in this phase: `COUNT(*)`, `COUNT(expr)`, `MIN(expr)`, `MAX(expr)`.
-- `COUNT(*)` counts all filtered rows; `COUNT(expr)` counts only non-NULL expression values.
-- `MIN(expr)`/`MAX(expr)` ignore NULL values; when all values are NULL (or input is empty), result is `NULL`.
-- Mixing aggregate and non-aggregate projections without grouping is rejected with a deterministic error.
+- `GROUP BY` partitions filtered rows into deterministic groups by the group-key tuple.
+- `HAVING` is evaluated after per-group aggregate/projection calculation.
+- `ORDER BY` is applied before `LIMIT` for non-grouped queries.
+- Sort is stable; ties preserve insertion/scan order.
+- Aggregates supported in select projections: `COUNT(*)`, `COUNT(expr)`, `MIN(expr)`, `MAX(expr)`.
+- Mixing aggregate and non-aggregate projections without grouping is rejected.
+- With `GROUP BY`, non-aggregate projections must be present in the `GROUP BY` list; unsupported combinations fail deterministically.
 
-## 4.1) Row Mutation Semantics (Phase 3)
-- `UPDATE <table> SET ... [WHERE ...]` mutates every row matching `WHERE`; without `WHERE`, all rows are candidates.
-- `DELETE FROM <table> [WHERE ...]` removes every row matching `WHERE`; without `WHERE`, all rows are candidates.
-- `WHERE` predicate evaluation and literal coercion in mutation paths are identical to `SELECT`.
-- A deterministic affected-row count is recorded as the number of rows matched by the mutation predicate.
+## 4.1) Relational Scope Semantics (JOIN/Subquery/Alias)
+- `JOIN` and `INNER JOIN` are treated as inner joins.
+- Join execution is deterministic nested-loop over scoped row sets.
+- Scoped `FROM` subqueries are supported as derived tables.
+- Subquery `FROM` items must have an alias in current parser behavior.
+- Table aliases are supported with `AS` (`FROM t AS x`) and without `AS` (`FROM t x`).
+- Qualified names (e.g. `u.id`) are supported in projections, join predicates, where predicates, and order terms.
+- Unqualified names that resolve to multiple scoped columns are rejected as ambiguous.
+- Unknown scoped names (column/alias resolution failures) are rejected deterministically.
 
-## 5) Error Categories
-- Parse error: invalid syntax.
-- Schema error: unknown table/column, invalid arity.
-- Constraint error: future phase extension (reserved category).
-- Transaction error: invalid state transitions (e.g., commit without active transaction).
-- Storage/IO error: pager/file failures.
+## 4.2) Mutation Semantics
+- `UPDATE` and `DELETE` apply row-wise against optional single-clause WHERE predicates.
+- A deterministic affected-row count is tracked for mutation statements.
 
-## 6) Day 2 Exit Criteria
-- Semantics contract documented and versioned.
-- Maven project scaffold added and build lifecycle validated (`validate` phase).
+## 5) Error Category Intent
+- Parse errors: malformed syntax/tokens for supported grammar.
+- Schema errors: unknown table/column, ambiguous column resolution, scoped-name resolution failures, arity mismatches.
+- Transaction errors: invalid transaction-state transitions.
 
-## 7) Executable Contract Mapping
-- Section 1 (NULL semantics): `SemanticsContractTest.section1_*`.
-- Section 2 (type affinity/coercion): `SemanticsContractTest.section2_*`.
-- Section 3 (transactions + rollback visibility): `SemanticsContractTest.section3_*`, `InMemoryDatabaseTransactionTest.*`, `TransactionStateMachineTest.*`.
-- Section 4 (query shaping + aggregates): `SemanticsContractTest.section4_*`, `ParserSelectTest.parsesOrderByAndLimit`, `InMemoryDatabaseTest.supportsOrderByAndLimitWithDeterministicTieBreak`.
-- Section 4.1 (row mutation semantics): `SemanticsContractTest.section4_1_*`, `InMemoryDatabaseMutationTest.*`, `ParserMutationTest.*`.
-- Section 5 (error categories): `ErrorNormalizationIntegrationTest.*`, `ErrorParityTest.*`.
+## 6) Executable Contract Mapping (current)
+- Transaction behavior: `TransactionStateMachineTest.*`, `InMemoryDatabaseTransactionTest.*`.
+- Query shaping and aggregates: `SemanticsContractTest.section4_*`, `InMemoryDatabaseTest.*`.
+- Relational scope behavior: `RelationalQueryCompletenessTest.*`.
+- Error normalization: `ErrorParityTest.*`, `ErrorNormalizationIntegrationTest.*`.

@@ -15,6 +15,8 @@ public final class Tokenizer {
         KEYWORDS.add("ORDER");
         KEYWORDS.add("BY");
         KEYWORDS.add("LIMIT");
+        KEYWORDS.add("GROUP");
+        KEYWORDS.add("HAVING");
         KEYWORDS.add("ASC");
         KEYWORDS.add("DESC");
         KEYWORDS.add("INSERT");
@@ -29,6 +31,9 @@ public final class Tokenizer {
         KEYWORDS.add("COMMIT");
         KEYWORDS.add("ROLLBACK");
         KEYWORDS.add("AS");
+        KEYWORDS.add("INNER");
+        KEYWORDS.add("JOIN");
+        KEYWORDS.add("ON");
     }
 
     public List<Token> tokenize(String input) {
@@ -137,7 +142,7 @@ public final class Tokenizer {
             }
         }
 
-        if (c == ',' || c == ';' || c == '(' || c == ')' || c == '*' || c == '=' || c == '<' || c == '>') {
+        if (c == ',' || c == ';' || c == '(' || c == ')' || c == '*' || c == '=' || c == '<' || c == '>' || c == '.') {
             return String.valueOf(c);
         }
         return null;
