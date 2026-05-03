@@ -1,59 +1,50 @@
 # SQLite 1.0 to Java Rewrite — Semantics Contract v1
 
 ## Purpose
-This document defines externally observable behavior that the Java rewrite must preserve for the Phase 1 SQL subset.
+This document defines externally observable behavior currently implemented for the phase-scoped SQL subset.
 
 ## 1) NULL Semantics
-- `NULL` compared with any value using `=` or `!=` yields unknown/null-like predicate outcome.
-- `IS NULL` and `IS NOT NULL` are not part of the currently implemented parser subset.
-- Arithmetic with `NULL` yields `NULL` (reserved for expression-phase expansion).
+- NULL handling is deterministic in current evaluator paths.
+- Current parser subset does not include `IS NULL` / `IS NOT NULL` syntax.
 
-## 2) Type Affinity and Coercion
-- Runtime values are represented as: `NULL`, integer, real, text, blob.
-- Literal parsing supports integer, real, text.
-- Comparisons in current execution follow deterministic engine-local comparison rules.
+## 2) Type and Comparison Semantics
+- Runtime values are represented as integer, real, text, and null-like values.
+- Literal parsing supports integer/real/text.
+- Comparison behavior is engine-local and deterministic for supported operators.
 
 ## 3) Transaction Semantics
-- `BEGIN` opens a transaction scope.
-- `COMMIT` atomically makes all in-transaction changes visible.
-- `ROLLBACK` discards all in-transaction changes.
-- Statements outside explicit transactions execute in auto-commit mode.
-- Nested transactions are rejected deterministically (`BEGIN` while active is a transaction-state error).
-- Savepoint commands (`SAVEPOINT`, `RELEASE`, `ROLLBACK TO`) are intentionally not supported in this phase.
+- `BEGIN` starts an explicit transaction.
+- `COMMIT` persists in-transaction changes.
+- `ROLLBACK` restores pre-transaction state snapshot.
+- Nested `BEGIN` is rejected as transaction-state error.
 
 ## 4) Query Result Semantics
-- For scoped `SELECT` without `ORDER BY`, row order is implementation-defined.
 - `ORDER BY` is applied before `LIMIT`.
-- `ORDER BY` uses stable sorting; ties preserve original scan/insertion order.
-- `NULL` values sort last for both ascending and descending ordering in this phase.
-- Aggregates supported in this phase: `COUNT(*)`, `COUNT(expr)`, `MIN(expr)`, `MAX(expr)`.
-- `COUNT(*)` counts all filtered rows; `COUNT(expr)` counts only non-NULL expression values.
-- `MIN(expr)`/`MAX(expr)` ignore NULL values; when all values are NULL (or input is empty), result is `NULL`.
-- Mixing aggregate and non-aggregate projections without grouping is rejected with a deterministic error.
+- Sort is stable; ties preserve insertion/scan order.
+- Aggregates supported in select projections: `COUNT(*)`, `COUNT(expr)`, `MIN(expr)`, `MAX(expr)`.
+- Mixing aggregate and non-aggregate projections without grouping is rejected.
 
-## 4.1) Relational Scope Semantics (JOIN/Subquery)
-- `INNER JOIN` and `JOIN` are supported as inner joins only.
-- Join execution is deterministic nested-loop inner join over the scoped row sets.
-- Subqueries are supported in `FROM` when aliased (derived table scope).
-- Qualified column references (e.g. `u.id`) are supported in projections, predicates, ordering, and join predicates.
-- Unqualified references that resolve to multiple scoped columns are rejected deterministically as ambiguous-column schema errors.
-- Unknown columns/aliases in scoped resolution are rejected deterministically as schema errors.
+## 4.1) Relational Scope Semantics (JOIN/Subquery/Alias)
+- `JOIN` and `INNER JOIN` are treated as inner joins.
+- Join execution is deterministic nested-loop over scoped row sets.
+- Scoped `FROM` subqueries are supported as derived tables.
+- Subquery `FROM` items must have an alias in current parser behavior.
+- Table aliases are supported with `AS` (`FROM t AS x`) and without `AS` (`FROM t x`).
+- Qualified names (e.g. `u.id`) are supported in projections, join predicates, where predicates, and order terms.
+- Unqualified names that resolve to multiple scoped columns are rejected as ambiguous.
+- Unknown scoped names (column/alias resolution failures) are rejected deterministically.
 
-## 4.2) Row Mutation Semantics (Phase 3)
-- `UPDATE <table> SET ... [WHERE ...]` mutates every row matching `WHERE`; without `WHERE`, all rows are candidates.
-- `DELETE FROM <table> [WHERE ...]` removes every row matching `WHERE`; without `WHERE`, all rows are candidates.
-- A deterministic affected-row count is recorded as the number of rows matched by the mutation predicate.
+## 4.2) Mutation Semantics
+- `UPDATE` and `DELETE` apply row-wise against optional single-clause WHERE predicates.
+- A deterministic affected-row count is tracked for mutation statements.
 
-## 5) Error Categories
-- Parse error: invalid syntax.
-- Schema error: unknown table/column, invalid arity, ambiguous column resolution in scoped queries.
-- Constraint error: future phase extension (reserved category).
-- Transaction error: invalid state transitions (e.g., commit without active transaction).
-- Storage/IO error: pager/file failures.
+## 5) Error Category Intent
+- Parse errors: malformed syntax/tokens for supported grammar.
+- Schema errors: unknown table/column, ambiguous column resolution, scoped-name resolution failures, arity mismatches.
+- Transaction errors: invalid transaction-state transitions.
 
-## 6) Executable Contract Mapping
-- Section 3 (transactions + rollback visibility): `SemanticsContractTest.section3_*`, `InMemoryDatabaseTransactionTest.*`, `TransactionStateMachineTest.*`.
-- Section 4 (query shaping + aggregates): `SemanticsContractTest.section4_*`, `ParserSelectTest.parsesOrderByAndLimit`, `InMemoryDatabaseTest.supportsOrderByAndLimitWithDeterministicTieBreak`.
-- Section 4.1 (joins/subqueries + scoped name resolution): `RelationalQueryCompletenessTest.*`.
-- Section 4.2 (row mutation semantics): `SemanticsContractTest.section4_1_*`, `InMemoryDatabaseMutationTest.*`, `ParserMutationTest.*`.
-- Section 5 (error categories): `ErrorNormalizationIntegrationTest.*`, `ErrorParityTest.*`.
+## 6) Executable Contract Mapping (current)
+- Transaction behavior: `TransactionStateMachineTest.*`, `InMemoryDatabaseTransactionTest.*`.
+- Query shaping and aggregates: `SemanticsContractTest.section4_*`, `InMemoryDatabaseTest.*`.
+- Relational scope behavior: `RelationalQueryCompletenessTest.*`.
+- Error normalization: `ErrorParityTest.*`, `ErrorNormalizationIntegrationTest.*`.
