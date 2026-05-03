@@ -1,0 +1,11 @@
+{
+  "name": "day35_case_004_aggregates",
+  "script": "CREATE TABLE t (id INT, score INT); INSERT INTO t VALUES (1, 7); INSERT INTO t VALUES (2, 3); INSERT INTO t VALUES (3, 9); SELECT COUNT(*), MIN(score), MAX(score) FROM t;",
+  "expected": {
+    "columns": ["COUNT(*)", "MIN(score)", "MAX(score)"],
+    "rows": [["3", "3", "9"]],
+    "errorCategory": null,
+    "errorMessage": null,
+    "metadata": {"phase": "day35", "focus": "aggregates"}
+  }
+}

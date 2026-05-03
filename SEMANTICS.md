@@ -48,3 +48,11 @@ This document defines externally observable behavior that the Java rewrite must 
 ## 6) Day 2 Exit Criteria
 - Semantics contract documented and versioned.
 - Maven project scaffold added and build lifecycle validated (`validate` phase).
+
+## 7) Executable Contract Mapping
+- Section 1 (NULL semantics): `SemanticsContractTest.section1_*`.
+- Section 2 (type affinity/coercion): `SemanticsContractTest.section2_*`.
+- Section 3 (transactions + rollback visibility): `SemanticsContractTest.section3_*`, `InMemoryDatabaseTransactionTest.*`, `TransactionStateMachineTest.*`.
+- Section 4 (query shaping + aggregates): `SemanticsContractTest.section4_*`, `ParserSelectTest.parsesOrderByAndLimit`, `InMemoryDatabaseTest.supportsOrderByAndLimitWithDeterministicTieBreak`.
+- Section 4.1 (row mutation semantics): `SemanticsContractTest.section4_1_*`, `InMemoryDatabaseMutationTest.*`, `ParserMutationTest.*`.
+- Section 5 (error categories): `ErrorNormalizationIntegrationTest.*`, `ErrorParityTest.*`.

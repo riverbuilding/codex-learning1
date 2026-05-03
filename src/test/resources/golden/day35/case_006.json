@@ -1,0 +1,11 @@
+{
+  "name": "day35_case_006_malformed_limit",
+  "script": "CREATE TABLE t (id INT); SELECT id FROM t LIMIT 'x';",
+  "expected": {
+    "columns": [],
+    "rows": [],
+    "errorCategory": "PARSE",
+    "errorMessage": "PARSE:PARSE_ERROR - Expected numeric LIMIT value",
+    "metadata": {"phase": "day35", "focus": "limit_parse_error"}
+  }
+}
