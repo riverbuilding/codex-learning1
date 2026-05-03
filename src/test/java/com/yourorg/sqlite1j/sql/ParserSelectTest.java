@@ -18,6 +18,8 @@ class ParserSelectTest {
         assertEquals("id", stmt.whereClause().column());
         assertEquals("=", stmt.whereClause().operator());
         assertEquals("1", stmt.whereClause().literal());
+        assertEquals(0, stmt.orderBy().size());
+        assertNull(stmt.limit());
     }
 
     @Test
@@ -27,6 +29,28 @@ class ParserSelectTest {
         assertEquals("*", stmt.projections().get(0));
         assertEquals("t", stmt.fromTable());
         assertNull(stmt.whereClause());
+        assertEquals(0, stmt.orderBy().size());
+        assertNull(stmt.limit());
+    }
+
+    @Test
+    void parsesOrderByAndLimit() {
+        SelectStatement stmt = new Parser().parseSelect("SELECT id FROM users ORDER BY name DESC, id ASC LIMIT 10;");
+        assertEquals(2, stmt.orderBy().size());
+        assertEquals("name", stmt.orderBy().get(0).column());
+        assertEquals(false, stmt.orderBy().get(0).ascending());
+        assertEquals("id", stmt.orderBy().get(1).column());
+        assertEquals(true, stmt.orderBy().get(1).ascending());
+        assertEquals(10, stmt.limit());
+    }
+
+    @Test
+    void parsesAggregateProjections() {
+        SelectStatement stmt = new Parser().parseSelect("SELECT COUNT(*), COUNT(id), MIN(age), MAX(age) FROM users;");
+        assertEquals("COUNT(*)", stmt.projections().get(0));
+        assertEquals("COUNT(id)", stmt.projections().get(1));
+        assertEquals("MIN(age)", stmt.projections().get(2));
+        assertEquals("MAX(age)", stmt.projections().get(3));
     }
 
     @Test

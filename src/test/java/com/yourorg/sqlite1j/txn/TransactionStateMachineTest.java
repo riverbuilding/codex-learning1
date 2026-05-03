@@ -3,6 +3,7 @@ package com.yourorg.sqlite1j.txn;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class TransactionStateMachineTest {
@@ -37,6 +38,15 @@ class TransactionStateMachineTest {
         assertThrows(IllegalStateException.class, m::beginCommit);
         assertThrows(IllegalStateException.class, m::finishCommit);
         assertThrows(IllegalStateException.class, m::beginRollback);
+        assertThrows(IllegalStateException.class, m::finishRollback);
+    }
+
+    @Test
+    void nestedBeginFailsWithDeterministicDiagnostic() {
+        TransactionStateMachine m = new TransactionStateMachine();
+        m.begin();
+        IllegalStateException error = assertThrows(IllegalStateException.class, m::begin);
+        assertTrue(error.getMessage().contains("Nested transactions are not supported"));
     }
 
     @Test

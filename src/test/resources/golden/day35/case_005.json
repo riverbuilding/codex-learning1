@@ -1,0 +1,11 @@
+{
+  "name": "day35_case_005_invalid_order_by_column",
+  "script": "CREATE TABLE t (id INT); SELECT id FROM t ORDER BY missing;",
+  "expected": {
+    "columns": [],
+    "rows": [],
+    "errorCategory": "SCHEMA",
+    "errorMessage": "SCHEMA:SCHEMA_ERROR - Unknown column in ORDER BY: missing",
+    "metadata": {"phase": "day35", "focus": "order_by_schema_error"}
+  }
+}

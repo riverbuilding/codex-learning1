@@ -39,10 +39,16 @@ public final class SqlCommandRunner {
             if (normalized.startsWith("CREATE TABLE")) {
                 return parser.parseCreateTable(sql);
             }
+            if (normalized.startsWith("UPDATE")) {
+                return parser.parseUpdate(sql);
+            }
+            if (normalized.startsWith("DELETE")) {
+                return parser.parseDelete(sql);
+            }
             if (normalized.startsWith("BEGIN") || normalized.startsWith("COMMIT") || normalized.startsWith("ROLLBACK")) {
                 return parser.parseTransactionControl(sql);
             }
-            throw new IllegalArgumentException("Expected SQL statement type (CREATE/INSERT/SELECT/BEGIN/COMMIT/ROLLBACK)");
+            throw new IllegalArgumentException("Expected SQL statement type (CREATE/INSERT/SELECT/UPDATE/DELETE/BEGIN/COMMIT/ROLLBACK)");
         }
         catch (RuntimeException e) {
             throw new DbException(ErrorParity.normalizeThrowable(e));

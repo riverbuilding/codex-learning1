@@ -108,6 +108,66 @@ class SemanticsContractTest {
     }
 
     @Test
+    void section4_queryResultSemantics_orderByAppliedBeforeLimit() {
+        Parser parser = new Parser();
+        InMemoryDatabase db = new InMemoryDatabase();
+        db.execute(parser.parseCreateTable("CREATE TABLE t (id INTEGER, score INTEGER);"));
+        db.execute(parser.parseInsert("INSERT INTO t VALUES (1, 5);"));
+        db.execute(parser.parseInsert("INSERT INTO t VALUES (2, 5);"));
+        db.execute(parser.parseInsert("INSERT INTO t VALUES (3, 4);"));
+
+        List<List<DbValue>> rows = db.execute(parser.parseSelect("SELECT id FROM t ORDER BY score DESC LIMIT 2;"));
+        assertEquals(2, rows.size());
+        assertEquals(1L, rows.get(0).get(0).asInteger());
+        assertEquals(2L, rows.get(1).get(0).asInteger());
+    }
+
+    @Test
+    void section4_queryResultSemantics_aggregatesNullHandlingAndTyping() {
+        Parser parser = new Parser();
+        InMemoryDatabase db = new InMemoryDatabase();
+        db.execute(parser.parseCreateTable("CREATE TABLE t (id INTEGER, score INTEGER);"));
+        db.execute(parser.parseInsert("INSERT INTO t VALUES (1, 7);"));
+        db.execute(parser.parseInsert("INSERT INTO t VALUES (2, 3);"));
+        db.execute(parser.parseInsert("INSERT INTO t VALUES (3, 9);"));
+
+        List<List<DbValue>> rows = db.execute(parser.parseSelect("SELECT COUNT(*), COUNT(score), MIN(score), MAX(score) FROM t;"));
+        assertEquals(1, rows.size());
+        assertEquals(3L, rows.get(0).get(0).asInteger());
+        assertEquals(3L, rows.get(0).get(1).asInteger());
+        assertEquals(3L, rows.get(0).get(2).asInteger());
+        assertEquals(9L, rows.get(0).get(3).asInteger());
+    }
+
+    @Test
+    void section4_queryResultSemantics_aggregateAndNonAggregateMixRejectedWithoutGrouping() {
+        Parser parser = new Parser();
+        InMemoryDatabase db = new InMemoryDatabase();
+        db.execute(parser.parseCreateTable("CREATE TABLE t (id INTEGER);"));
+        db.execute(parser.parseInsert("INSERT INTO t VALUES (1);"));
+        assertThrows(IllegalArgumentException.class,
+                () -> db.execute(parser.parseSelect("SELECT COUNT(*), id FROM t;")));
+    }
+
+    @Test
+    void section4_1_rowMutationSemantics_affectedRowCountAndVisibility() {
+        Parser parser = new Parser();
+        InMemoryDatabase db = new InMemoryDatabase();
+        db.execute(parser.parseCreateTable("CREATE TABLE t (id INTEGER, name TEXT);"));
+        db.execute(parser.parseInsert("INSERT INTO t VALUES (1, 'a');"));
+        db.execute(parser.parseInsert("INSERT INTO t VALUES (2, 'b');"));
+
+        db.execute(parser.parseUpdate("UPDATE t SET name='z' WHERE id = 2;"));
+        assertEquals(1, db.lastMutationCount());
+        db.execute(parser.parseDelete("DELETE FROM t WHERE id = 1;"));
+        assertEquals(1, db.lastMutationCount());
+
+        List<List<DbValue>> rows = db.execute(parser.parseSelect("SELECT name FROM t;"));
+        assertEquals(1, rows.size());
+        assertEquals("z", rows.get(0).get(0).asText());
+    }
+
+    @Test
     void section5_errorCategories_transactionErrorOnCommitWithoutActiveTransaction() {
         TransactionManager tx = new TransactionManager();
         IllegalStateException error = assertThrows(IllegalStateException.class, tx::commit);

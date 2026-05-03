@@ -18,10 +18,25 @@ This document defines externally observable behavior that the Java rewrite must 
 - `COMMIT` atomically makes all in-transaction changes visible.
 - `ROLLBACK` discards all in-transaction changes.
 - Statements outside explicit transactions execute in auto-commit mode.
+- Nested transactions are rejected deterministically (`BEGIN` while active is a transaction-state error).
+- Savepoint commands (`SAVEPOINT`, `RELEASE`, `ROLLBACK TO`) are intentionally not supported in this phase.
 
 ## 4) Query Result Semantics
 - For scoped `SELECT` without `ORDER BY`, row order is implementation-defined.
 - Projection and filter semantics must match the reference baseline behavior for supported expressions.
+- `ORDER BY` is applied before `LIMIT`.
+- `ORDER BY` uses stable sorting; ties preserve original scan/insertion order.
+- `NULL` values sort last for both ascending and descending ordering in this phase.
+- Aggregates supported in this phase: `COUNT(*)`, `COUNT(expr)`, `MIN(expr)`, `MAX(expr)`.
+- `COUNT(*)` counts all filtered rows; `COUNT(expr)` counts only non-NULL expression values.
+- `MIN(expr)`/`MAX(expr)` ignore NULL values; when all values are NULL (or input is empty), result is `NULL`.
+- Mixing aggregate and non-aggregate projections without grouping is rejected with a deterministic error.
+
+## 4.1) Row Mutation Semantics (Phase 3)
+- `UPDATE <table> SET ... [WHERE ...]` mutates every row matching `WHERE`; without `WHERE`, all rows are candidates.
+- `DELETE FROM <table> [WHERE ...]` removes every row matching `WHERE`; without `WHERE`, all rows are candidates.
+- `WHERE` predicate evaluation and literal coercion in mutation paths are identical to `SELECT`.
+- A deterministic affected-row count is recorded as the number of rows matched by the mutation predicate.
 
 ## 5) Error Categories
 - Parse error: invalid syntax.
@@ -33,3 +48,11 @@ This document defines externally observable behavior that the Java rewrite must 
 ## 6) Day 2 Exit Criteria
 - Semantics contract documented and versioned.
 - Maven project scaffold added and build lifecycle validated (`validate` phase).
+
+## 7) Executable Contract Mapping
+- Section 1 (NULL semantics): `SemanticsContractTest.section1_*`.
+- Section 2 (type affinity/coercion): `SemanticsContractTest.section2_*`.
+- Section 3 (transactions + rollback visibility): `SemanticsContractTest.section3_*`, `InMemoryDatabaseTransactionTest.*`, `TransactionStateMachineTest.*`.
+- Section 4 (query shaping + aggregates): `SemanticsContractTest.section4_*`, `ParserSelectTest.parsesOrderByAndLimit`, `InMemoryDatabaseTest.supportsOrderByAndLimitWithDeterministicTieBreak`.
+- Section 4.1 (row mutation semantics): `SemanticsContractTest.section4_1_*`, `InMemoryDatabaseMutationTest.*`, `ParserMutationTest.*`.
+- Section 5 (error categories): `ErrorNormalizationIntegrationTest.*`, `ErrorParityTest.*`.

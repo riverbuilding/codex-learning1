@@ -33,9 +33,9 @@ public final class Parser {
         if (cursor.matchSymbol("*")) {
             projections.add("*");
         } else {
-            projections.add(cursor.expectIdentifier());
+            projections.add(parseProjection(cursor));
             while (cursor.matchSymbol(",")) {
-                projections.add(cursor.expectIdentifier());
+                projections.add(parseProjection(cursor));
             }
         }
 
@@ -50,9 +50,57 @@ public final class Parser {
             where = new WhereClause(column, operator, literal);
         }
 
+        List<SelectStatement.OrderByTerm> orderBy = new ArrayList<>();
+        if (cursor.matchKeyword("ORDER")) {
+            cursor.expectKeyword("BY");
+            orderBy.add(parseOrderByTerm(cursor));
+            while (cursor.matchSymbol(",")) {
+                orderBy.add(parseOrderByTerm(cursor));
+            }
+        }
+
+        Integer limit = null;
+        if (cursor.matchKeyword("LIMIT")) {
+            String literal = cursor.expectLiteral();
+            try {
+                limit = Integer.parseInt(literal);
+            } catch (NumberFormatException ex) {
+                throw new IllegalArgumentException("Expected numeric LIMIT value");
+            }
+            if (limit < 0) {
+                throw new IllegalArgumentException("Expected non-negative LIMIT value");
+            }
+        }
+
         cursor.matchSymbol(";");
         cursor.expectEof();
-        return new SelectStatement(projections, fromTable, where);
+        return new SelectStatement(projections, fromTable, where, orderBy, limit);
+    }
+
+    private SelectStatement.OrderByTerm parseOrderByTerm(Cursor cursor) {
+        String column = cursor.expectIdentifier();
+        boolean ascending = true;
+        if (cursor.matchKeyword("ASC")) {
+            ascending = true;
+        } else if (cursor.matchKeyword("DESC")) {
+            ascending = false;
+        }
+        return new SelectStatement.OrderByTerm(column, ascending);
+    }
+
+    private String parseProjection(Cursor cursor) {
+        String name = cursor.expectIdentifierOrKeyword();
+        if (cursor.matchSymbol("(")) {
+            String argument;
+            if (cursor.matchSymbol("*")) {
+                argument = "*";
+            } else {
+                argument = cursor.expectIdentifier();
+            }
+            cursor.expectSymbol(")");
+            return name.toUpperCase() + "(" + argument + ")";
+        }
+        return name;
     }
 
     public InsertStatement parseInsert(String sql) {
@@ -78,6 +126,61 @@ public final class Parser {
         cursor.matchSymbol(";");
         cursor.expectEof();
         return new InsertStatement(tableName, values);
+    }
+
+    public UpdateStatement parseUpdate(String sql) {
+        List<Token> tokens = new Tokenizer().tokenize(sql);
+        Cursor cursor = new Cursor(tokens);
+
+        cursor.expectKeyword("UPDATE");
+        String tableName = cursor.expectIdentifier();
+        cursor.expectKeyword("SET");
+
+        List<UpdateStatement.Assignment> assignments = new ArrayList<>();
+        assignments.add(parseAssignment(cursor));
+        while (cursor.matchSymbol(",")) {
+            assignments.add(parseAssignment(cursor));
+        }
+
+        WhereClause where = null;
+        if (cursor.matchKeyword("WHERE")) {
+            String column = cursor.expectIdentifier();
+            String operator = cursor.expectComparisonOperator();
+            String literal = cursor.expectLiteral();
+            where = new WhereClause(column, operator, literal);
+        }
+
+        cursor.matchSymbol(";");
+        cursor.expectEof();
+        return new UpdateStatement(tableName, assignments, where);
+    }
+
+    public DeleteStatement parseDelete(String sql) {
+        List<Token> tokens = new Tokenizer().tokenize(sql);
+        Cursor cursor = new Cursor(tokens);
+
+        cursor.expectKeyword("DELETE");
+        cursor.expectKeyword("FROM");
+        String tableName = cursor.expectIdentifier();
+
+        WhereClause where = null;
+        if (cursor.matchKeyword("WHERE")) {
+            String column = cursor.expectIdentifier();
+            String operator = cursor.expectComparisonOperator();
+            String literal = cursor.expectLiteral();
+            where = new WhereClause(column, operator, literal);
+        }
+
+        cursor.matchSymbol(";");
+        cursor.expectEof();
+        return new DeleteStatement(tableName, where);
+    }
+
+    private UpdateStatement.Assignment parseAssignment(Cursor cursor) {
+        String column = cursor.expectIdentifier();
+        cursor.expectSymbol("=");
+        String literal = cursor.expectLiteral();
+        return new UpdateStatement.Assignment(column, literal);
     }
 
     public CreateTableStatement parseCreateTable(String sql) {

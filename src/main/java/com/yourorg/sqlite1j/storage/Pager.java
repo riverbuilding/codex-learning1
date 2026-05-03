@@ -9,8 +9,17 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 
 public final class Pager implements Closeable {
+    public enum CrashHook {
+        NONE,
+        BEFORE_WRITE,
+        AFTER_WRITE_BEFORE_FORCE
+    }
+
     private final FileChannel channel;
     private final int pageSize;
+    private int highestAllocatedPage;
+    private final java.util.Deque<Integer> freeList = new java.util.ArrayDeque<>();
+    private CrashHook crashHook = CrashHook.NONE;
 
     public Pager(Path file, int pageSize) throws IOException {
         this(file, pageSize, StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE);
@@ -19,6 +28,7 @@ public final class Pager implements Closeable {
     public Pager(Path file, int pageSize, OpenOption... options) throws IOException {
         this.channel = FileChannel.open(file, options);
         this.pageSize = pageSize;
+        this.highestAllocatedPage = (int) (channel.size() / pageSize);
     }
 
     public Page readPage(int pageNumber) throws IOException {
@@ -43,6 +53,9 @@ public final class Pager implements Closeable {
         if (page.size() != pageSize) {
             throw new IllegalArgumentException("Unexpected page size: " + page.size() + ", expected " + pageSize);
         }
+        if (crashHook == CrashHook.BEFORE_WRITE) {
+            throw new IOException("Simulated crash before page write");
+        }
         long offset = offsetOf(page.pageNumber());
         ByteBuffer data = page.buffer().duplicate();
         data.clear();
@@ -50,7 +63,35 @@ public final class Pager implements Closeable {
         while (data.hasRemaining()) {
             channel.write(data);
         }
+        if (page.pageNumber() > highestAllocatedPage) {
+            highestAllocatedPage = page.pageNumber();
+        }
+        if (crashHook == CrashHook.AFTER_WRITE_BEFORE_FORCE) {
+            throw new IOException("Simulated crash after page write before force");
+        }
         channel.force(false);
+    }
+
+    public synchronized int allocatePageNumber() {
+        if (!freeList.isEmpty()) {
+            return freeList.pop();
+        }
+        highestAllocatedPage++;
+        return highestAllocatedPage;
+    }
+
+    public synchronized void freePageNumber(int pageNumber) {
+        if (pageNumber <= 0 || pageNumber > highestAllocatedPage) {
+            throw new IllegalArgumentException("Cannot free out-of-range page number: " + pageNumber);
+        }
+        if (freeList.contains(pageNumber)) {
+            throw new IllegalArgumentException("Page number already freed: " + pageNumber);
+        }
+        freeList.push(pageNumber);
+    }
+
+    public synchronized void setCrashHook(CrashHook crashHook) {
+        this.crashHook = crashHook == null ? CrashHook.NONE : crashHook;
     }
 
     private long offsetOf(int pageNumber) {

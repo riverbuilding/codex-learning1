@@ -34,6 +34,11 @@ public final class BTree {
         return value == null ? null : value.clone();
     }
 
+    public boolean delete(long key) {
+        LeafNode leaf = findLeafForKey(key);
+        return leaf.entries.remove(key) != null;
+    }
+
     public List<Long> orderedKeys() {
         List<Long> keys = new ArrayList<>();
         for (LeafNode leaf : leaves) {

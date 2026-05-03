@@ -1,10 +1,11 @@
 # sqlite1j
 
-`sqlite1j` is a modernized Java rewrite target for SQLite 1.0 semantics.
+`sqlite1j` is a modernized Java rewrite target for SQLite 1.0 semantics, with full SQLite 1.0 parity targeted only after Phase 4 completion.
 
 ## Project goals
 
 - Provide an in-memory SQL execution engine with SQLite 1.x-inspired behavior.
+- Achieve SQLite 1.0 behavioral parity as the core project objective, explicitly gated on completing Phase 4.
 - Preserve and validate historical semantics with parser, planner, executor, and storage tests.
 - Support differential and golden-case testing to track behavior parity over time.
 

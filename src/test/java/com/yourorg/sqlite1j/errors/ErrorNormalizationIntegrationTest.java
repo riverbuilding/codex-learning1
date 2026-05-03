@@ -20,6 +20,27 @@ class ErrorNormalizationIntegrationTest {
     }
 
     @Test
+    void normalizesCommitWithoutBeginAsTransactionError() {
+        SqlCommandRunner runner = new SqlCommandRunner(new Parser(), new InMemoryDatabase());
+        DbException error = assertThrows(DbException.class, () -> runner.execute("COMMIT;"));
+        assertEquals(ErrorCategory.TRANSACTION, error.error().category());
+    }
+
+    @Test
+    void normalizesRollbackWithoutBeginAsTransactionError() {
+        SqlCommandRunner runner = new SqlCommandRunner(new Parser(), new InMemoryDatabase());
+        DbException error = assertThrows(DbException.class, () -> runner.execute("ROLLBACK;"));
+        assertEquals(ErrorCategory.TRANSACTION, error.error().category());
+    }
+
+    @Test
+    void normalizesSavepointAsParseErrorWhileUnsupported() {
+        SqlCommandRunner runner = new SqlCommandRunner(new Parser(), new InMemoryDatabase());
+        DbException error = assertThrows(DbException.class, () -> runner.execute("SAVEPOINT s1;"));
+        assertEquals(ErrorCategory.PARSE, error.error().category());
+    }
+
+    @Test
     void normalizesUnknownTableAsSchemaError() {
         SqlCommandRunner runner = new SqlCommandRunner(new Parser(), new InMemoryDatabase());
 
@@ -42,5 +63,24 @@ class ErrorNormalizationIntegrationTest {
 
         DbException error = assertThrows(DbException.class, () -> runner.execute("SELECT id users"));
         assertEquals(ErrorCategory.PARSE, error.error().category());
+    }
+
+    @Test
+    void normalizesMalformedLimitAsParseError() {
+        SqlCommandRunner runner = new SqlCommandRunner(new Parser(), new InMemoryDatabase());
+        runner.execute("CREATE TABLE t (id INTEGER);");
+
+        DbException error = assertThrows(DbException.class, () -> runner.execute("SELECT id FROM t LIMIT 'x';"));
+        assertEquals(ErrorCategory.PARSE, error.error().category());
+    }
+
+    @Test
+    void normalizesAggregateMixWithoutGroupingAsSchemaError() {
+        SqlCommandRunner runner = new SqlCommandRunner(new Parser(), new InMemoryDatabase());
+        runner.execute("CREATE TABLE t (id INTEGER);");
+        runner.execute("INSERT INTO t VALUES (1);");
+
+        DbException error = assertThrows(DbException.class, () -> runner.execute("SELECT COUNT(*), id FROM t;"));
+        assertEquals(ErrorCategory.SCHEMA, error.error().category());
     }
 }

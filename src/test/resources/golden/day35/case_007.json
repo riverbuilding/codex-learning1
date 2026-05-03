@@ -1,0 +1,11 @@
+{
+  "name": "day35_case_007_aggregate_mix_unsupported",
+  "script": "CREATE TABLE t (id INT); INSERT INTO t VALUES (1); SELECT COUNT(*), id FROM t;",
+  "expected": {
+    "columns": [],
+    "rows": [],
+    "errorCategory": "SCHEMA",
+    "errorMessage": "SCHEMA:SCHEMA_ERROR - Unsupported aggregate/non-aggregate projection mix without GROUP BY",
+    "metadata": {"phase": "day35", "focus": "aggregate_mix_error"}
+  }
+}

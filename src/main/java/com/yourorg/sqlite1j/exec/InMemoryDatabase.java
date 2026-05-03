@@ -6,6 +6,8 @@ import com.yourorg.sqlite1j.sql.ColumnDef;
 import com.yourorg.sqlite1j.sql.CreateTableStatement;
 import com.yourorg.sqlite1j.sql.InsertStatement;
 import com.yourorg.sqlite1j.sql.SelectStatement;
+import com.yourorg.sqlite1j.sql.UpdateStatement;
+import com.yourorg.sqlite1j.sql.DeleteStatement;
 import com.yourorg.sqlite1j.sql.Statement;
 import com.yourorg.sqlite1j.sql.TransactionCommand;
 import com.yourorg.sqlite1j.sql.TransactionStatement;
@@ -17,6 +19,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Comparator;
 
 public final class InMemoryDatabase {
     private final Map<String, List<String>> schemas = new HashMap<>();
@@ -24,6 +27,7 @@ public final class InMemoryDatabase {
     private final ExpressionEvaluator evaluator = new ExpressionEvaluator();
     private final TransactionManager tx = new TransactionManager();
     private Map<String, List<Map<String, DbValue>>> txSnapshotRows;
+    private int lastMutationCount;
 
 
     public void beginTransaction() {
@@ -53,6 +57,14 @@ public final class InMemoryDatabase {
         }
         if (stmt instanceof InsertStatement) {
             execute((InsertStatement) stmt);
+            return List.of();
+        }
+        if (stmt instanceof UpdateStatement) {
+            execute((UpdateStatement) stmt);
+            return List.of();
+        }
+        if (stmt instanceof DeleteStatement) {
+            execute((DeleteStatement) stmt);
             return List.of();
         }
         if (stmt instanceof SelectStatement) {
@@ -107,19 +119,175 @@ public final class InMemoryDatabase {
             row.put(columns.get(i), parseLiteral(stmt.values().get(i)));
         }
         rows.get(stmt.tableName()).add(row);
+        lastMutationCount = 1;
+    }
+
+    public void execute(UpdateStatement stmt) {
+        List<String> columns = requiredSchema(stmt.tableName());
+        int affected = 0;
+        for (Map<String, DbValue> row : rows.get(stmt.tableName())) {
+            if (!evaluator.evaluateWhere(stmt.whereClause(), row)) {
+                continue;
+            }
+            for (UpdateStatement.Assignment assignment : stmt.assignments()) {
+                if (!columns.contains(assignment.column())) {
+                    throw new IllegalArgumentException("Unknown column '" + assignment.column() + "' in table " + stmt.tableName());
+                }
+                row.put(assignment.column(), parseLiteral(assignment.literal()));
+            }
+            affected++;
+        }
+        lastMutationCount = affected;
+    }
+
+    public void execute(DeleteStatement stmt) {
+        requiredSchema(stmt.tableName());
+        List<Map<String, DbValue>> tableRows = rows.get(stmt.tableName());
+        int originalSize = tableRows.size();
+        tableRows.removeIf(row -> evaluator.evaluateWhere(stmt.whereClause(), row));
+        lastMutationCount = originalSize - tableRows.size();
     }
 
     public List<List<DbValue>> execute(SelectStatement stmt) {
         requiredSchema(stmt.fromTable());
+        ensureSupportedAggregateProjectionMix(stmt.projections());
         List<List<DbValue>> out = new ArrayList<>();
+        List<RowWithIndex> matched = new ArrayList<>();
+        int idx = 0;
 
         for (Map<String, DbValue> row : rows.get(stmt.fromTable())) {
             if (!evaluator.evaluateWhere(stmt.whereClause(), row)) {
+                idx++;
                 continue;
             }
-            out.add(evaluator.project(stmt.projections(), row));
+            matched.add(new RowWithIndex(row, idx));
+            idx++;
+        }
+
+        if (!stmt.orderBy().isEmpty()) {
+            matched.sort(rowComparator(stmt.orderBy()));
+        }
+
+        if (containsAggregate(stmt.projections())) {
+            out.add(computeAggregateRow(stmt.projections(), matched));
+            return out;
+        }
+
+        Integer limit = stmt.limit();
+        int upper = limit == null ? matched.size() : Math.min(limit, matched.size());
+        for (int i = 0; i < upper; i++) {
+            out.add(evaluator.project(stmt.projections(), matched.get(i).row));
         }
         return out;
+    }
+
+    private List<DbValue> computeAggregateRow(List<String> projections, List<RowWithIndex> rows) {
+        List<DbValue> out = new ArrayList<>();
+        for (String projection : projections) {
+            out.add(computeAggregateValue(projection, rows));
+        }
+        return out;
+    }
+
+    private DbValue computeAggregateValue(String projection, List<RowWithIndex> rows) {
+        String upper = projection.toUpperCase();
+        int open = projection.indexOf('(');
+        int close = projection.lastIndexOf(')');
+        String arg = projection.substring(open + 1, close).trim();
+        if (upper.startsWith("COUNT(")) {
+            if ("*".equals(arg)) {
+                return DbValue.ofInteger(rows.size());
+            }
+            long count = 0;
+            for (RowWithIndex row : rows) {
+                DbValue value = row.row.get(arg);
+                if (value != null && !value.isNull()) {
+                    count++;
+                }
+            }
+            return DbValue.ofInteger(count);
+        }
+        if (upper.startsWith("MIN(") || upper.startsWith("MAX(")) {
+            DbValue best = null;
+            for (RowWithIndex row : rows) {
+                DbValue value = row.row.get(arg);
+                if (value == null || value.isNull()) {
+                    continue;
+                }
+                if (best == null) {
+                    best = value;
+                    continue;
+                }
+                int cmp = compareForOrder(value, best);
+                if ((upper.startsWith("MIN(") && cmp < 0) || (upper.startsWith("MAX(") && cmp > 0)) {
+                    best = value;
+                }
+            }
+            return best == null ? DbValue.nullValue() : best;
+        }
+        throw new IllegalArgumentException("Unsupported aggregate projection: " + projection);
+    }
+
+    private boolean containsAggregate(List<String> projections) {
+        for (String projection : projections) {
+            String upper = projection.toUpperCase();
+            if (upper.startsWith("COUNT(") || upper.startsWith("MIN(") || upper.startsWith("MAX(")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void ensureSupportedAggregateProjectionMix(List<String> projections) {
+        boolean hasAggregate = false;
+        boolean hasNonAggregate = false;
+        for (String projection : projections) {
+            String upper = projection.toUpperCase();
+            if (upper.startsWith("COUNT(") || upper.startsWith("MIN(") || upper.startsWith("MAX(")) {
+                hasAggregate = true;
+            } else {
+                hasNonAggregate = true;
+            }
+        }
+        if (hasAggregate && hasNonAggregate) {
+            throw new IllegalArgumentException("Unsupported aggregate/non-aggregate projection mix without GROUP BY");
+        }
+    }
+
+    private Comparator<RowWithIndex> rowComparator(List<SelectStatement.OrderByTerm> terms) {
+        return (a, b) -> {
+            for (SelectStatement.OrderByTerm term : terms) {
+                DbValue left = a.row.get(term.column());
+                DbValue right = b.row.get(term.column());
+                int cmp = compareForOrder(left, right);
+                if (cmp != 0) {
+                    return term.ascending() ? cmp : -cmp;
+                }
+            }
+            return Integer.compare(a.index, b.index);
+        };
+    }
+
+    private int compareForOrder(DbValue left, DbValue right) {
+        if (left == null || left.isNull()) {
+            return (right == null || right.isNull()) ? 0 : 1; // NULLS LAST
+        }
+        if (right == null || right.isNull()) {
+            return -1;
+        }
+        String l = left.toString();
+        String r = right.toString();
+        return l.compareTo(r);
+    }
+
+    private static final class RowWithIndex {
+        private final Map<String, DbValue> row;
+        private final int index;
+
+        private RowWithIndex(Map<String, DbValue> row, int index) {
+            this.row = row;
+            this.index = index;
+        }
     }
 
     private List<String> requiredSchema(String tableName) {
@@ -152,5 +320,9 @@ public final class InMemoryDatabase {
         } catch (NumberFormatException ignore) {
             return DbValue.ofText(literal);
         }
+    }
+
+    public int lastMutationCount() {
+        return lastMutationCount;
     }
 }

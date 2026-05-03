@@ -6,6 +6,7 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -21,7 +22,7 @@ class GoldenCorpusDiscoveryTest {
                     .filter(Files::isDirectory)
                     .filter(path -> path.getFileName().toString().startsWith("day"))
                     .sorted()
-                    .toList();
+                    .collect(Collectors.toList());
 
             assertFalse(dayDirs.isEmpty(), "Expected at least one day* corpus folder under golden/");
             for (Path dayDir : dayDirs) {

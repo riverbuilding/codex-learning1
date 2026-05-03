@@ -1,0 +1,11 @@
+{
+  "name": "day35_case_001_update_where",
+  "script": "CREATE TABLE t (id INT, name TEXT); INSERT INTO t VALUES (1, 'a'); INSERT INTO t VALUES (2, 'b'); UPDATE t SET name='z' WHERE id = 2; SELECT name FROM t WHERE id = 2;",
+  "expected": {
+    "columns": ["name"],
+    "rows": [["z"]],
+    "errorCategory": null,
+    "errorMessage": null,
+    "metadata": {"phase": "day35", "focus": "update"}
+  }
+}

@@ -43,4 +43,26 @@ class PagerTest {
             assertArrayEquals(zeros, PageCodec.readBytes(read, 0, 16));
         }
     }
+
+    @Test
+    void allocatesAndReusesFreedPageNumbers() throws Exception {
+        Path file = Files.createTempFile("pager", ".db");
+        try (Pager pager = new Pager(file, 128)) {
+            int p1 = pager.allocatePageNumber();
+            int p2 = pager.allocatePageNumber();
+            pager.freePageNumber(p2);
+            assertEquals(p2, pager.allocatePageNumber());
+            assertEquals(1, p1);
+        }
+    }
+
+    @Test
+    void supportsCrashHookSimulation() throws Exception {
+        Path file = Files.createTempFile("pager", ".db");
+        try (Pager pager = new Pager(file, 128)) {
+            Page page = new Page(1, 128);
+            pager.setCrashHook(Pager.CrashHook.BEFORE_WRITE);
+            assertThrows(Exception.class, () -> pager.writePage(page));
+        }
+    }
 }

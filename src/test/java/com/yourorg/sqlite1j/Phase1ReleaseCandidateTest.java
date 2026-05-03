@@ -27,7 +27,7 @@ class Phase1ReleaseCandidateTest {
 
         db.beginTransaction();
         IllegalStateException txError = assertThrows(IllegalStateException.class, db::beginTransaction);
-        assertTrue(txError.getMessage().contains("BEGIN requires IDLE state"));
+        assertTrue(txError.getMessage().contains("Nested transactions are not supported"));
         db.rollbackTransaction();
     }
 }
