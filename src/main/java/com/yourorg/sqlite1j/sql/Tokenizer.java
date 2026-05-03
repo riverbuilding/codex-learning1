@@ -29,6 +29,9 @@ public final class Tokenizer {
         KEYWORDS.add("COMMIT");
         KEYWORDS.add("ROLLBACK");
         KEYWORDS.add("AS");
+        KEYWORDS.add("INNER");
+        KEYWORDS.add("JOIN");
+        KEYWORDS.add("ON");
     }
 
     public List<Token> tokenize(String input) {
@@ -137,7 +140,7 @@ public final class Tokenizer {
             }
         }
 
-        if (c == ',' || c == ';' || c == '(' || c == ')' || c == '*' || c == '=' || c == '<' || c == '>') {
+        if (c == ',' || c == ';' || c == '(' || c == ')' || c == '*' || c == '=' || c == '<' || c == '>' || c == '.') {
             return String.valueOf(c);
         }
         return null;

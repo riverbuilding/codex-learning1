@@ -149,36 +149,105 @@ public final class InMemoryDatabase {
     }
 
     public List<List<DbValue>> execute(SelectStatement stmt) {
-        requiredSchema(stmt.fromTable());
         ensureSupportedAggregateProjectionMix(stmt.projections());
+        List<Map<String, DbValue>> working = materializeFromItem(stmt.from());
+        for (SelectStatement.JoinClause join : stmt.joins()) {
+            List<Map<String, DbValue>> rightRows = materializeFromItem(join.right());
+            List<Map<String, DbValue>> combined = new ArrayList<>();
+            for (Map<String, DbValue> left : working) {
+                DbValue lv = resolveColumn(left, join.leftColumn());
+                for (Map<String, DbValue> right : rightRows) {
+                    DbValue rv = resolveColumn(right, join.rightColumn());
+                    if (lv != null && rv != null && lv.toString().equals(rv.toString())) {
+                        Map<String, DbValue> m = new LinkedHashMap<>(left);
+                        m.putAll(right);
+                        combined.add(m);
+                    }
+                }
+            }
+            working = combined;
+        }
+
         List<List<DbValue>> out = new ArrayList<>();
         List<RowWithIndex> matched = new ArrayList<>();
         int idx = 0;
+        for (Map<String, DbValue> row : working) {
+            if (!evaluateWhereScoped(stmt.whereClause(), row)) { idx++; continue; }
+            matched.add(new RowWithIndex(row, idx++));
+        }
+        if (!stmt.orderBy().isEmpty()) { matched.sort(rowComparator(stmt.orderBy())); }
+        if (containsAggregate(stmt.projections())) { out.add(computeAggregateRow(stmt.projections(), matched)); return out; }
+        int upper = stmt.limit() == null ? matched.size() : Math.min(stmt.limit(), matched.size());
+        for (int i = 0; i < upper; i++) out.add(projectScoped(stmt.projections(), matched.get(i).row));
+        return out;
+    }
 
-        for (Map<String, DbValue> row : rows.get(stmt.fromTable())) {
-            if (!evaluator.evaluateWhere(stmt.whereClause(), row)) {
-                idx++;
-                continue;
+    private List<Map<String, DbValue>> materializeFromItem(SelectStatement.FromItem item) {
+        if (item.isSubquery()) {
+            List<List<DbValue>> sub = execute(item.subquery());
+            List<Map<String, DbValue>> out = new ArrayList<>();
+            for (List<DbValue> row : sub) {
+                Map<String, DbValue> map = new LinkedHashMap<>();
+                for (int i = 0; i < item.subquery().projections().size(); i++) {
+                    String col = item.subquery().projections().get(i);
+                    map.put(item.alias() + "." + col, row.get(i));
+                }
+                out.add(map);
             }
-            matched.add(new RowWithIndex(row, idx));
-            idx++;
-        }
-
-        if (!stmt.orderBy().isEmpty()) {
-            matched.sort(rowComparator(stmt.orderBy()));
-        }
-
-        if (containsAggregate(stmt.projections())) {
-            out.add(computeAggregateRow(stmt.projections(), matched));
             return out;
         }
-
-        Integer limit = stmt.limit();
-        int upper = limit == null ? matched.size() : Math.min(limit, matched.size());
-        for (int i = 0; i < upper; i++) {
-            out.add(evaluator.project(stmt.projections(), matched.get(i).row));
+        List<String> schema = requiredSchema(item.tableName());
+        List<Map<String, DbValue>> out = new ArrayList<>();
+        String scope = item.alias() == null ? item.tableName() : item.alias();
+        for (Map<String, DbValue> row : rows.get(item.tableName())) {
+            Map<String, DbValue> m = new LinkedHashMap<>();
+            for (String c : schema) { m.put(scope + "." + c, row.get(c)); }
+            out.add(m);
         }
         return out;
+    }
+
+    private boolean evaluateWhereScoped(com.yourorg.sqlite1j.sql.WhereClause where, Map<String, DbValue> row) {
+        if (where == null) return true;
+        DbValue left = resolveColumn(row, where.column());
+        DbValue right = parseLiteral(where.literal());
+        int cmp = compareForOrder(left, right);
+        if ("=".equals(where.operator())) return cmp == 0;
+        if ("!=".equals(where.operator())) return cmp != 0;
+        if ("<".equals(where.operator())) return cmp < 0;
+        if ("<=".equals(where.operator())) return cmp <= 0;
+        if (">".equals(where.operator())) return cmp > 0;
+        if (">=".equals(where.operator())) return cmp >= 0;
+        throw new IllegalArgumentException("Unsupported operator: " + where.operator());
+    }
+
+    private List<DbValue> projectScoped(List<String> projections, Map<String, DbValue> row) {
+        List<DbValue> out = new ArrayList<>();
+        if (projections.size() == 1 && "*".equals(projections.get(0))) {
+            java.util.HashSet<String> seen = new java.util.HashSet<>();
+            for (Map.Entry<String, DbValue> e : row.entrySet()) {
+                String k = e.getKey();
+                int dot = k.lastIndexOf('.');
+                String base = dot >= 0 ? k.substring(dot + 1) : k;
+                if (seen.add(base)) out.add(e.getValue());
+            }
+            return out;
+        }
+        for (String p : projections) out.add(resolveColumn(row, p));
+        return out;
+    }
+
+    private DbValue resolveColumn(Map<String, DbValue> row, String column) {
+        if (row.containsKey(column)) return row.get(column);
+        DbValue found = null;
+        for (Map.Entry<String, DbValue> e : row.entrySet()) {
+            if (e.getKey().endsWith("." + column)) {
+                if (found != null) throw new IllegalArgumentException("Ambiguous column: " + column);
+                found = e.getValue();
+            }
+        }
+        if (found == null) throw new IllegalArgumentException("Unknown column: " + column);
+        return found;
     }
 
     private List<DbValue> computeAggregateRow(List<String> projections, List<RowWithIndex> rows) {
@@ -200,7 +269,7 @@ public final class InMemoryDatabase {
             }
             long count = 0;
             for (RowWithIndex row : rows) {
-                DbValue value = row.row.get(arg);
+                DbValue value = resolveColumn(row.row, arg);
                 if (value != null && !value.isNull()) {
                     count++;
                 }
@@ -210,7 +279,7 @@ public final class InMemoryDatabase {
         if (upper.startsWith("MIN(") || upper.startsWith("MAX(")) {
             DbValue best = null;
             for (RowWithIndex row : rows) {
-                DbValue value = row.row.get(arg);
+                DbValue value = resolveColumn(row.row, arg);
                 if (value == null || value.isNull()) {
                     continue;
                 }
