@@ -34,4 +34,22 @@ class TableStorageTest {
         }
         throw new AssertionError("Expected IllegalArgumentException");
     }
+
+    @Test
+    void supportsUpdateAndDeleteHeavySequence() {
+        TableStorage storage = new TableStorage("users", List.of("name", "age"));
+        long id1 = storage.insert(List.of(DbValue.ofText("a"), DbValue.ofInteger(1)));
+        long id2 = storage.insert(List.of(DbValue.ofText("b"), DbValue.ofInteger(2)));
+        long id3 = storage.insert(List.of(DbValue.ofText("c"), DbValue.ofInteger(3)));
+
+        assertEquals(true, storage.updateByRowId(id2, List.of(DbValue.ofText("bb"), DbValue.ofInteger(20))));
+        assertEquals(true, storage.deleteByRowId(id1));
+        assertEquals(true, storage.deleteByRowId(id3));
+        assertEquals(false, storage.deleteByRowId(999));
+
+        List<Map<String, DbValue>> rows = storage.scanAll();
+        assertEquals(1, rows.size());
+        assertEquals("bb", rows.get(0).get("name").asText());
+        assertEquals(20L, rows.get(0).get("age").asInteger());
+    }
 }

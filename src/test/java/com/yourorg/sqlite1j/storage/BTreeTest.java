@@ -56,4 +56,19 @@ class BTreeTest {
         assertTrue(tree.leafCount() >= 2);
         assertEquals(List.of(1L, 2L, 3L), tree.orderedKeys());
     }
+
+    @Test
+    void deleteHeavySequenceMaintainsConsistency() {
+        BTree tree = new BTree(3);
+        for (int i = 1; i <= 20; i++) {
+            tree.insert(i, new byte[]{(byte) i});
+        }
+        for (int i = 2; i <= 20; i += 2) {
+            assertTrue(tree.delete(i));
+        }
+        for (int i = 2; i <= 20; i += 2) {
+            assertNull(tree.search(i));
+        }
+        assertEquals(10, tree.size());
+    }
 }

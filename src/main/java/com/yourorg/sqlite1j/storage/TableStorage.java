@@ -47,6 +47,21 @@ public final class TableStorage {
         return out;
     }
 
+    public boolean updateByRowId(long rowId, List<DbValue> values) {
+        if (values.size() != columns.size()) {
+            throw new IllegalArgumentException("Arity mismatch for table " + tableName);
+        }
+        if (rows.search(rowId) == null) {
+            return false;
+        }
+        rows.insert(rowId, encode(values));
+        return true;
+    }
+
+    public boolean deleteByRowId(long rowId) {
+        return rows.delete(rowId);
+    }
+
 
     public List<List<DbValue>> select(SelectStatement stmt) {
         List<List<DbValue>> out = new ArrayList<>();
