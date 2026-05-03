@@ -50,5 +50,45 @@ class RelationalQueryCompletenessTest {
         DbException ex = assertThrows(DbException.class,
                 () -> db.executeStatementNormalized(p.parseSelect("SELECT id FROM a JOIN b ON id = id;")));
         assertEquals("SCHEMA_ERROR", ex.error().code());
+
+        ex = assertThrows(DbException.class,
+                () -> db.executeStatementNormalized(p.parseSelect("SELECT id FROM a as t1 JOIN b as t2 ON a.id = b.id;")));
+        assertEquals("SCHEMA_ERROR", ex.error().code());
+
+        ex = assertThrows(DbException.class,
+                () -> db.executeStatementNormalized(p.parseSelect("SELECT id FROM a t1 JOIN b t2 ON a.id = b.id;")));
+        assertEquals("SCHEMA_ERROR", ex.error().code());
+
+        ex = assertThrows(DbException.class,
+                () -> db.executeStatementNormalized(p.parseSelect("SELECT id FROM a as t1 JOIN b as t2 ON a.id = t2.id;")));
+        assertEquals("SCHEMA_ERROR", ex.error().code());
+
+        ex = assertThrows(DbException.class,
+                () -> db.executeStatementNormalized(p.parseSelect("SELECT id FROM a t1 JOIN b t2 ON a.id = t2.id;")));
+        assertEquals("SCHEMA_ERROR", ex.error().code());
+
+        ex = assertThrows(DbException.class,
+                () -> db.executeStatementNormalized(p.parseSelect("SELECT id FROM a as t1 JOIN b as t2 ON t1.id = b.id;")));
+        assertEquals("SCHEMA_ERROR", ex.error().code());
+
+        ex = assertThrows(DbException.class,
+                () -> db.executeStatementNormalized(p.parseSelect("SELECT id FROM a t1 JOIN b t2 ON t1.id = b.id;")));
+        assertEquals("SCHEMA_ERROR", ex.error().code());
+
+        ex = assertThrows(DbException.class,
+                () -> db.executeStatementNormalized(p.parseSelect("SELECT id FROM a as t1 JOIN b as t2 ON t1.id = t2.id;")));
+        assertEquals("SCHEMA_ERROR", ex.error().code());
+
+        ex = assertThrows(DbException.class,
+                () -> db.executeStatementNormalized(p.parseSelect("SELECT id FROM a t1 JOIN b t2 ON t1.id = t2.id;")));
+        assertEquals("SCHEMA_ERROR", ex.error().code());
+
+        List<List<DbValue>> rows = db.execute(p.parseSelect("SELECT t1.id FROM a as t1 JOIN b as t2 ON t1.id = t2.id;"));
+        assertEquals(1, rows.size());
+        assertEquals(1, rows.get(0).get(0).asInteger());
+
+        rows = db.execute(p.parseSelect("SELECT t1.id FROM a t1 JOIN b t2 ON t1.id = t2.id;"));
+        assertEquals(1, rows.size());
+        assertEquals(1, rows.get(0).get(0).asInteger());
     }
 }
