@@ -40,14 +40,44 @@ public final class Parser {
         }
 
         cursor.expectKeyword("FROM");
-        String fromTable = cursor.expectIdentifier();
+        SelectStatement.FromItem from = parseFromItem(cursor);
+        List<SelectStatement.JoinClause> joins = new ArrayList<>();
+        while (cursor.matchKeyword("INNER") || cursor.matchKeyword("JOIN")) {
+            if ("INNER".equalsIgnoreCase(cursor.previousLexeme())) {
+                cursor.expectKeyword("JOIN");
+            }
+            SelectStatement.FromItem right = parseFromItem(cursor);
+            cursor.expectKeyword("ON");
+            String leftCol = parseProjection(cursor);
+            cursor.expectSymbol("=");
+            String rightCol = parseProjection(cursor);
+            joins.add(new SelectStatement.JoinClause(right, leftCol, rightCol));
+        }
 
         WhereClause where = null;
         if (cursor.matchKeyword("WHERE")) {
-            String column = cursor.expectIdentifier();
+            String column = parseProjection(cursor);
             String operator = cursor.expectComparisonOperator();
             String literal = cursor.expectLiteral();
             where = new WhereClause(column, operator, literal);
+        }
+
+
+        List<String> groupBy = new ArrayList<>();
+        if (cursor.matchKeyword("GROUP")) {
+            cursor.expectKeyword("BY");
+            groupBy.add(parseProjection(cursor));
+            while (cursor.matchSymbol(",")) {
+                groupBy.add(parseProjection(cursor));
+            }
+        }
+
+        WhereClause having = null;
+        if (cursor.matchKeyword("HAVING")) {
+            String column = parseProjection(cursor);
+            String operator = cursor.expectComparisonOperator();
+            String literal = cursor.expectLiteral();
+            having = new WhereClause(column, operator, literal);
         }
 
         List<SelectStatement.OrderByTerm> orderBy = new ArrayList<>();
@@ -74,11 +104,28 @@ public final class Parser {
 
         cursor.matchSymbol(";");
         cursor.expectEof();
-        return new SelectStatement(projections, fromTable, where, orderBy, limit);
+        return new SelectStatement(projections, from, joins, where, groupBy, having, orderBy, limit);
+    }
+
+    private SelectStatement.FromItem parseFromItem(Cursor cursor) {
+        if (cursor.matchSymbol("(")) {
+            String sub = cursor.collectBalancedSelectSql();
+            SelectStatement nested = parseSelect(sub);
+            String alias = cursor.expectIdentifier();
+            return SelectStatement.FromItem.subquery(nested, alias);
+        }
+        String table = cursor.expectIdentifier();
+        String alias = null;
+        if (cursor.matchKeyword("AS")) {
+            alias = cursor.expectIdentifier();
+        } else if (cursor.isIdentifier()) {
+            alias = cursor.expectIdentifier();
+        }
+        return SelectStatement.FromItem.table(table, alias);
     }
 
     private SelectStatement.OrderByTerm parseOrderByTerm(Cursor cursor) {
-        String column = cursor.expectIdentifier();
+        String column = parseProjection(cursor);
         boolean ascending = true;
         if (cursor.matchKeyword("ASC")) {
             ascending = true;
@@ -90,6 +137,9 @@ public final class Parser {
 
     private String parseProjection(Cursor cursor) {
         String name = cursor.expectIdentifierOrKeyword();
+        while (cursor.matchSymbol(".")) {
+            name = name + "." + cursor.expectIdentifierOrKeyword();
+        }
         if (cursor.matchSymbol("(")) {
             String argument;
             if (cursor.matchSymbol("*")) {
@@ -144,7 +194,7 @@ public final class Parser {
 
         WhereClause where = null;
         if (cursor.matchKeyword("WHERE")) {
-            String column = cursor.expectIdentifier();
+            String column = parseProjection(cursor);
             String operator = cursor.expectComparisonOperator();
             String literal = cursor.expectLiteral();
             where = new WhereClause(column, operator, literal);
@@ -165,7 +215,7 @@ public final class Parser {
 
         WhereClause where = null;
         if (cursor.matchKeyword("WHERE")) {
-            String column = cursor.expectIdentifier();
+            String column = parseProjection(cursor);
             String operator = cursor.expectComparisonOperator();
             String literal = cursor.expectLiteral();
             where = new WhereClause(column, operator, literal);
@@ -177,7 +227,7 @@ public final class Parser {
     }
 
     private UpdateStatement.Assignment parseAssignment(Cursor cursor) {
-        String column = cursor.expectIdentifier();
+        String column = parseProjection(cursor);
         cursor.expectSymbol("=");
         String literal = cursor.expectLiteral();
         return new UpdateStatement.Assignment(column, literal);
@@ -225,6 +275,7 @@ public final class Parser {
         private boolean matchSymbol(String symbol) {
             Token token = current();
             if (token.type() == TokenType.SYMBOL && token.lexeme().equals(symbol)) {
+                previousLexeme = token.lexeme();
                 index++;
                 return true;
             }
@@ -242,12 +293,16 @@ public final class Parser {
             if (token.type() != TokenType.KEYWORD || !token.lexeme().equalsIgnoreCase(keyword)) {
                 throw fail("Expected keyword '" + keyword + "'");
             }
+            previousLexeme = token.lexeme();
             index++;
         }
+
+        private String previousLexeme = "";
 
         private boolean matchKeyword(String keyword) {
             Token token = current();
             if (token.type() == TokenType.KEYWORD && token.lexeme().equalsIgnoreCase(keyword)) {
+                previousLexeme = token.lexeme();
                 index++;
                 return true;
             }
@@ -301,6 +356,40 @@ public final class Parser {
             }
         }
 
+
+        private boolean isIdentifier() {
+            return current().type() == TokenType.IDENTIFIER;
+        }
+
+        private String previousLexeme() {
+            return previousLexeme;
+        }
+
+        private String collectBalancedSelectSql() {
+            int start = index;
+            int depth = 1;
+            while (index < tokens.size()) {
+                Token t = current();
+                if (t.type() == TokenType.SYMBOL) {
+                    if ("(".equals(t.lexeme())) depth++;
+                    if (")".equals(t.lexeme())) {
+                        depth--;
+                        if (depth == 0) {
+                            int end = index;
+                            index++;
+                            StringBuilder sb = new StringBuilder();
+                            for (int i = start; i < end; i++) {
+                                if (sb.length() > 0) sb.append(' ');
+                                sb.append(tokens.get(i).lexeme());
+                            }
+                            return sb.toString();
+                        }
+                    }
+                }
+                index++;
+            }
+            throw fail("Unterminated subquery");
+        }
         private IllegalArgumentException fail(String message) {
             return new IllegalArgumentException(message + " at token index " + index + " (" + current().lexeme() + ")");
         }
