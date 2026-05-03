@@ -68,4 +68,20 @@ class InMemoryDatabaseTest {
         assertEquals(3L, rows.get(0).get(2).asInteger());
         assertEquals(9L, rows.get(0).get(3).asInteger());
     }
+
+    @Test
+    void supportsDeterministicIndexedLookup() {
+        Parser parser = new Parser();
+        InMemoryDatabase db = new InMemoryDatabase();
+        db.execute(parser.parseCreateTable("CREATE TABLE users (id INT, age INT);"));
+        db.execute(parser.parseInsert("INSERT INTO users VALUES (1, 30);"));
+        db.execute(parser.parseInsert("INSERT INTO users VALUES (2, 30);"));
+        db.execute(parser.parseInsert("INSERT INTO users VALUES (3, 40);"));
+        db.execute(parser.parseCreateIndex("CREATE INDEX idx_users_age ON users (age);"));
+
+        List<List<DbValue>> rows = db.execute(parser.parseSelect("SELECT id FROM users WHERE age = 30;"));
+        assertEquals(2, rows.size());
+        assertEquals(1L, rows.get(0).get(0).asInteger());
+        assertEquals(2L, rows.get(1).get(0).asInteger());
+    }
 }

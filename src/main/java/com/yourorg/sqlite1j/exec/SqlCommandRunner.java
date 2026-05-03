@@ -39,6 +39,9 @@ public final class SqlCommandRunner {
             if (normalized.startsWith("CREATE TABLE")) {
                 return parser.parseCreateTable(sql);
             }
+            if (normalized.startsWith("CREATE INDEX")) {
+                return parser.parseCreateIndex(sql);
+            }
             if (normalized.startsWith("UPDATE")) {
                 return parser.parseUpdate(sql);
             }

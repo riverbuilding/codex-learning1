@@ -260,6 +260,23 @@ public final class Parser {
         return new CreateTableStatement(tableName, columns);
     }
 
+    public CreateIndexStatement parseCreateIndex(String sql) {
+        List<Token> tokens = new Tokenizer().tokenize(sql);
+        Cursor cursor = new Cursor(tokens);
+
+        cursor.expectKeyword("CREATE");
+        cursor.expectKeyword("INDEX");
+        String indexName = cursor.expectIdentifier();
+        cursor.expectKeyword("ON");
+        String tableName = cursor.expectIdentifier();
+        cursor.expectSymbol("(");
+        String columnName = cursor.expectIdentifier();
+        cursor.expectSymbol(")");
+        cursor.matchSymbol(";");
+        cursor.expectEof();
+        return new CreateIndexStatement(indexName, tableName, columnName);
+    }
+
     private static final class Cursor {
         private final List<Token> tokens;
         private int index;
