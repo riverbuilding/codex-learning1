@@ -2,7 +2,11 @@ package com.yourorg.sqlite1j.exec;
 
 import com.yourorg.sqlite1j.errors.DbException;
 import com.yourorg.sqlite1j.errors.ErrorParity;
+import com.yourorg.sqlite1j.planner.NameBinder;
+import com.yourorg.sqlite1j.planner.SchemaCatalog;
+import com.yourorg.sqlite1j.planner.TableSchema;
 import com.yourorg.sqlite1j.sql.Parser;
+import com.yourorg.sqlite1j.sql.SelectStatement;
 import com.yourorg.sqlite1j.sql.Statement;
 
 import java.util.List;
@@ -21,10 +25,26 @@ public final class SqlCommandRunner {
     public List<List<DbValue>> execute(String sql) {
         try {
             Statement stmt = parseStatement(sql);
+            if (stmt instanceof SelectStatement) {
+                validateSelectSemantics((SelectStatement) stmt);
+            }
             return db.executeStatementNormalized(stmt);
         } catch (DbException e) {
             throw e;
+        } catch (RuntimeException e) {
+            throw new DbException(ErrorParity.normalizeThrowable(e));
         }
+    }
+
+    private void validateSelectSemantics(SelectStatement stmt) {
+        if (stmt.from() == null) {
+            return;
+        }
+        SchemaCatalog catalog = new SchemaCatalog();
+        for (java.util.Map.Entry<String, java.util.List<String>> entry : db.exportSchemas().entrySet()) {
+            catalog.register(new TableSchema(entry.getKey(), new java.util.HashSet<>(entry.getValue())));
+        }
+        new NameBinder().bindSelect(stmt, catalog);
     }
 
     private Statement parseStatement(String sql) {
