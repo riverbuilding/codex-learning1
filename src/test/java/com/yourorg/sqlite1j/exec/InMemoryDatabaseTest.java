@@ -84,4 +84,13 @@ class InMemoryDatabaseTest {
         assertEquals(1L, rows.get(0).get(0).asInteger());
         assertEquals(2L, rows.get(1).get(0).asInteger());
     }
+
+    @Test
+    void supportsSelectLiteralAliasWithoutFrom() {
+        Parser parser = new Parser();
+        InMemoryDatabase db = new InMemoryDatabase();
+        List<List<DbValue>> rows = db.execute(parser.parseSelect("SELECT 1 AS value;"));
+        assertEquals(1, rows.size());
+        assertEquals(1L, rows.get(0).get(0).asInteger());
+    }
 }

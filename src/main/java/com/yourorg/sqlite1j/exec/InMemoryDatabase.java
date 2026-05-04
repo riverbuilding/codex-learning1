@@ -217,6 +217,16 @@ public final class InMemoryDatabase {
     }
 
     public List<List<DbValue>> execute(SelectStatement stmt) {
+        if (stmt.from() == null) {
+            List<DbValue> row = new ArrayList<>();
+            for (String literal : stmt.literalProjections()) {
+                if (literal == null) {
+                    throw new IllegalArgumentException("SELECT without FROM supports literal projections only");
+                }
+                row.add(parseLiteral(literal));
+            }
+            return List.of(row);
+        }
         ensureSupportedAggregateProjectionMix(stmt.projections(), stmt.groupBy());
         List<Map<String, DbValue>> working = materializeFromItem(stmt.from());
         if (!stmt.from().isSubquery() && stmt.joins().isEmpty() && stmt.whereClause() != null
