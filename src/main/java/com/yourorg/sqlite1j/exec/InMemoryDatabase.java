@@ -116,6 +116,36 @@ public final class InMemoryDatabase {
         tableIndexes.put(stmt.tableName(), new ArrayList<String>());
     }
 
+    Map<String, List<String>> exportSchemas() {
+        Map<String, List<String>> copy = new HashMap<>();
+        for (Map.Entry<String, List<String>> entry : schemas.entrySet()) {
+            copy.put(entry.getKey(), new ArrayList<>(entry.getValue()));
+        }
+        return copy;
+    }
+
+    Map<String, List<Map<String, DbValue>>> exportRows() {
+        return deepCopyRows(rows);
+    }
+
+    void importState(Map<String, List<String>> importedSchemas, Map<String, List<Map<String, DbValue>>> importedRows) {
+        schemas.clear();
+        rows.clear();
+        tableIndexes.clear();
+        indexData.clear();
+        for (Map.Entry<String, List<String>> entry : importedSchemas.entrySet()) {
+            schemas.put(entry.getKey(), new ArrayList<>(entry.getValue()));
+            tableIndexes.put(entry.getKey(), new ArrayList<String>());
+        }
+        for (Map.Entry<String, List<Map<String, DbValue>>> entry : importedRows.entrySet()) {
+            List<Map<String, DbValue>> tableRows = new ArrayList<>();
+            for (Map<String, DbValue> row : entry.getValue()) {
+                tableRows.add(new LinkedHashMap<>(row));
+            }
+            rows.put(entry.getKey(), tableRows);
+        }
+    }
+
     public void execute(InsertStatement stmt) {
         List<String> columns = requiredSchema(stmt.tableName());
         if (columns.size() != stmt.values().size()) {
