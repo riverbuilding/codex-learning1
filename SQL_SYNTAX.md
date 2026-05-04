@@ -91,3 +91,6 @@ Supported `LIMIT` form:
 - Quoted identifiers (`"name"`, `[name]`, `` `name` ``)
 - Escaped quotes inside string literals
 - Full SQLite grammar coverage
+# Parity Candidate Freeze
+
+This syntax surface is frozen for SQLite 1.0 scoped parity candidate as of **2026-05-04**.

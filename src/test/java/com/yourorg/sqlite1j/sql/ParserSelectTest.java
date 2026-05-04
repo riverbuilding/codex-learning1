@@ -70,4 +70,12 @@ class ParserSelectTest {
         assertThrows(IllegalArgumentException.class,
                 () -> new Parser().parseSelect("SELECT id users"));
     }
+
+    @Test
+    void parsesSelectLiteralAliasWithoutFrom() {
+        SelectStatement stmt = new Parser().parseSelect("SELECT 1 AS value;");
+        assertEquals(1, stmt.projections().size());
+        assertEquals("value", stmt.projections().get(0));
+        assertEquals("1", stmt.literalProjections().get(0));
+    }
 }

@@ -23,4 +23,12 @@ class ParserMutationTest {
         assertEquals(">=", stmt.whereClause().operator());
         assertEquals("18", stmt.whereClause().literal());
     }
+
+    @Test
+    void parsesCreateIndex() {
+        CreateIndexStatement stmt = new Parser().parseCreateIndex("CREATE INDEX idx_users_age ON users (age);");
+        assertEquals("idx_users_age", stmt.indexName());
+        assertEquals("users", stmt.tableName());
+        assertEquals("age", stmt.columnName());
+    }
 }

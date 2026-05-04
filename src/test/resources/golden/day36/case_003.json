@@ -1,0 +1,11 @@
+{
+  "name": "day36_case_003_schema_error_unknown_index_column",
+  "script": "CREATE TABLE t (id INT); CREATE INDEX idx_t_age ON t (age);",
+  "expected": {
+    "columns": [],
+    "rows": [],
+    "errorCategory": "SCHEMA",
+    "errorMessage": null,
+    "metadata": {"phase": "day36", "focus": "index_schema_error"}
+  }
+}

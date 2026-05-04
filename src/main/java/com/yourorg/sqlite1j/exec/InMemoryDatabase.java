@@ -8,6 +8,7 @@ import com.yourorg.sqlite1j.sql.InsertStatement;
 import com.yourorg.sqlite1j.sql.SelectStatement;
 import com.yourorg.sqlite1j.sql.UpdateStatement;
 import com.yourorg.sqlite1j.sql.DeleteStatement;
+import com.yourorg.sqlite1j.sql.CreateIndexStatement;
 import com.yourorg.sqlite1j.sql.Statement;
 import com.yourorg.sqlite1j.sql.TransactionCommand;
 import com.yourorg.sqlite1j.sql.TransactionStatement;
@@ -22,8 +23,17 @@ import java.util.Map;
 import java.util.Comparator;
 
 public final class InMemoryDatabase {
+    /**
+     * Concurrency envelope (minimal parity contract):
+     * - all statement/transaction entrypoints are serialized on this database instance
+     * - each statement observes a consistent state
+     * - rollback restores pre-transaction snapshot atomically relative to other calls
+     */
+    private final Object mutex = new Object();
     private final Map<String, List<String>> schemas = new HashMap<>();
     private final Map<String, List<Map<String, DbValue>>> rows = new HashMap<>();
+    private final Map<String, List<String>> tableIndexes = new HashMap<>();
+    private final Map<String, Map<String, List<Integer>>> indexData = new HashMap<>();
     private final ExpressionEvaluator evaluator = new ExpressionEvaluator();
     private final TransactionManager tx = new TransactionManager();
     private Map<String, List<Map<String, DbValue>>> txSnapshotRows;
@@ -31,22 +41,28 @@ public final class InMemoryDatabase {
 
 
     public void beginTransaction() {
-        tx.begin();
-        txSnapshotRows = deepCopyRows(rows);
+        synchronized (mutex) {
+            tx.begin();
+            txSnapshotRows = deepCopyRows(rows);
+        }
     }
 
     public void commitTransaction() {
-        tx.commit();
-        txSnapshotRows = null;
+        synchronized (mutex) {
+            tx.commit();
+            txSnapshotRows = null;
+        }
     }
 
     public void rollbackTransaction() {
-        tx.rollback();
-        if (txSnapshotRows != null) {
-            rows.clear();
-            rows.putAll(txSnapshotRows);
+        synchronized (mutex) {
+            tx.rollback();
+            if (txSnapshotRows != null) {
+                rows.clear();
+                rows.putAll(txSnapshotRows);
+            }
+            txSnapshotRows = null;
         }
-        txSnapshotRows = null;
     }
 
 
@@ -70,6 +86,10 @@ public final class InMemoryDatabase {
         if (stmt instanceof SelectStatement) {
             return execute((SelectStatement) stmt);
         }
+        if (stmt instanceof CreateIndexStatement) {
+            execute((CreateIndexStatement) stmt);
+            return List.of();
+        }
         if (stmt instanceof TransactionStatement) {
             TransactionCommand command = ((TransactionStatement) stmt).command();
             switch (command) {
@@ -92,10 +112,12 @@ public final class InMemoryDatabase {
     }
 
     public List<List<DbValue>> executeStatementNormalized(Statement stmt) {
-        try {
-            return executeStatement(stmt);
-        } catch (RuntimeException e) {
-            throw new DbException(ErrorParity.normalizeThrowable(e));
+        synchronized (mutex) {
+            try {
+                return executeStatement(stmt);
+            } catch (RuntimeException e) {
+                throw new DbException(ErrorParity.normalizeThrowable(e));
+            }
         }
     }
 
@@ -106,6 +128,37 @@ public final class InMemoryDatabase {
         }
         schemas.put(stmt.tableName(), columns);
         rows.put(stmt.tableName(), new ArrayList<>());
+        tableIndexes.put(stmt.tableName(), new ArrayList<String>());
+    }
+
+    Map<String, List<String>> exportSchemas() {
+        Map<String, List<String>> copy = new HashMap<>();
+        for (Map.Entry<String, List<String>> entry : schemas.entrySet()) {
+            copy.put(entry.getKey(), new ArrayList<>(entry.getValue()));
+        }
+        return copy;
+    }
+
+    Map<String, List<Map<String, DbValue>>> exportRows() {
+        return deepCopyRows(rows);
+    }
+
+    void importState(Map<String, List<String>> importedSchemas, Map<String, List<Map<String, DbValue>>> importedRows) {
+        schemas.clear();
+        rows.clear();
+        tableIndexes.clear();
+        indexData.clear();
+        for (Map.Entry<String, List<String>> entry : importedSchemas.entrySet()) {
+            schemas.put(entry.getKey(), new ArrayList<>(entry.getValue()));
+            tableIndexes.put(entry.getKey(), new ArrayList<String>());
+        }
+        for (Map.Entry<String, List<Map<String, DbValue>>> entry : importedRows.entrySet()) {
+            List<Map<String, DbValue>> tableRows = new ArrayList<>();
+            for (Map<String, DbValue> row : entry.getValue()) {
+                tableRows.add(new LinkedHashMap<>(row));
+            }
+            rows.put(entry.getKey(), tableRows);
+        }
     }
 
     public void execute(InsertStatement stmt) {
@@ -119,6 +172,7 @@ public final class InMemoryDatabase {
             row.put(columns.get(i), parseLiteral(stmt.values().get(i)));
         }
         rows.get(stmt.tableName()).add(row);
+        rebuildIndexes(stmt.tableName());
         lastMutationCount = 1;
     }
 
@@ -137,6 +191,7 @@ public final class InMemoryDatabase {
             }
             affected++;
         }
+        rebuildIndexes(stmt.tableName());
         lastMutationCount = affected;
     }
 
@@ -145,12 +200,42 @@ public final class InMemoryDatabase {
         List<Map<String, DbValue>> tableRows = rows.get(stmt.tableName());
         int originalSize = tableRows.size();
         tableRows.removeIf(row -> evaluator.evaluateWhere(stmt.whereClause(), row));
+        rebuildIndexes(stmt.tableName());
         lastMutationCount = originalSize - tableRows.size();
     }
 
+    public void execute(CreateIndexStatement stmt) {
+        List<String> columns = requiredSchema(stmt.tableName());
+        if (!columns.contains(stmt.columnName())) {
+            throw new IllegalArgumentException("Unknown column '" + stmt.columnName() + "' in table " + stmt.tableName());
+        }
+        List<String> indexes = tableIndexes.get(stmt.tableName());
+        if (!indexes.contains(stmt.columnName())) {
+            indexes.add(stmt.columnName());
+        }
+        rebuildIndex(stmt.tableName(), stmt.columnName());
+    }
+
     public List<List<DbValue>> execute(SelectStatement stmt) {
+        if (stmt.from() == null) {
+            List<DbValue> row = new ArrayList<>();
+            for (String literal : stmt.literalProjections()) {
+                if (literal == null) {
+                    throw new IllegalArgumentException("SELECT without FROM supports literal projections only");
+                }
+                row.add(parseLiteral(literal));
+            }
+            return List.of(row);
+        }
         ensureSupportedAggregateProjectionMix(stmt.projections(), stmt.groupBy());
         List<Map<String, DbValue>> working = materializeFromItem(stmt.from());
+        if (!stmt.from().isSubquery() && stmt.joins().isEmpty() && stmt.whereClause() != null
+                && "=".equals(stmt.whereClause().operator())) {
+            List<Map<String, DbValue>> indexedRows = lookupByIndex(stmt.from().tableName(), stmt.whereClause().column(), stmt.whereClause().literal());
+            if (indexedRows != null) {
+                working = indexedRows;
+            }
+        }
         for (SelectStatement.JoinClause join : stmt.joins()) {
             List<Map<String, DbValue>> rightRows = materializeFromItem(join.right());
             List<Map<String, DbValue>> combined = new ArrayList<>();
@@ -214,6 +299,55 @@ public final class InMemoryDatabase {
             out.add(m);
         }
         return out;
+    }
+
+    private List<Map<String, DbValue>> lookupByIndex(String tableName, String column, String literal) {
+        Map<String, List<Integer>> byColumn = indexData.get(tableName + "." + column);
+        if (byColumn == null) {
+            return null;
+        }
+        List<Integer> positions = byColumn.get(parseLiteral(literal).toString());
+        if (positions == null) {
+            return new ArrayList<Map<String, DbValue>>();
+        }
+        SelectStatement.FromItem item = SelectStatement.FromItem.table(tableName, null);
+        List<String> schema = requiredSchema(tableName);
+        List<Map<String, DbValue>> out = new ArrayList<>();
+        for (Integer position : positions) {
+            Map<String, DbValue> source = rows.get(tableName).get(position.intValue());
+            Map<String, DbValue> row = new LinkedHashMap<>();
+            for (String c : schema) {
+                row.put(tableName + "." + c, source.get(c));
+            }
+            out.add(row);
+        }
+        return out;
+    }
+
+    private void rebuildIndexes(String tableName) {
+        List<String> indexes = tableIndexes.get(tableName);
+        if (indexes == null) {
+            return;
+        }
+        for (String indexedColumn : indexes) {
+            rebuildIndex(tableName, indexedColumn);
+        }
+    }
+
+    private void rebuildIndex(String tableName, String columnName) {
+        Map<String, List<Integer>> byValue = new HashMap<>();
+        List<Map<String, DbValue>> tableRows = rows.get(tableName);
+        for (int i = 0; i < tableRows.size(); i++) {
+            DbValue value = tableRows.get(i).get(columnName);
+            String key = value == null ? "NULL" : value.toString();
+            List<Integer> bucket = byValue.get(key);
+            if (bucket == null) {
+                bucket = new ArrayList<>();
+                byValue.put(key, bucket);
+            }
+            bucket.add(Integer.valueOf(i));
+        }
+        indexData.put(tableName + "." + columnName, byValue);
     }
 
     private boolean evaluateWhereScoped(com.yourorg.sqlite1j.sql.WhereClause where, Map<String, DbValue> row) {

@@ -39,6 +39,7 @@ public final class SelectStatement implements Statement {
     }
 
     private final List<String> projections;
+    private final List<String> literalProjections;
     private final FromItem from;
     private final List<JoinClause> joins;
     private final WhereClause whereClause;
@@ -47,10 +48,11 @@ public final class SelectStatement implements Statement {
     private final List<OrderByTerm> orderBy;
     private final Integer limit;
 
-    public SelectStatement(List<String> projections, FromItem from, List<JoinClause> joins, WhereClause whereClause, List<String> groupBy, WhereClause havingClause, List<OrderByTerm> orderBy, Integer limit) {
-        this.projections = projections; this.from = from; this.joins = joins; this.whereClause = whereClause; this.groupBy = groupBy; this.havingClause = havingClause; this.orderBy = orderBy; this.limit = limit;
+    public SelectStatement(List<String> projections, List<String> literalProjections, FromItem from, List<JoinClause> joins, WhereClause whereClause, List<String> groupBy, WhereClause havingClause, List<OrderByTerm> orderBy, Integer limit) {
+        this.projections = projections; this.literalProjections = literalProjections; this.from = from; this.joins = joins; this.whereClause = whereClause; this.groupBy = groupBy; this.havingClause = havingClause; this.orderBy = orderBy; this.limit = limit;
     }
     public List<String> projections() { return projections; }
+    public List<String> literalProjections() { return literalProjections; }
     public String fromTable() { return from.tableName(); }
     public FromItem from() { return from; }
     public List<JoinClause> joins() { return joins; }

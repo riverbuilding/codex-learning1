@@ -30,28 +30,32 @@ public final class Parser {
 
         cursor.expectKeyword("SELECT");
         List<String> projections = new ArrayList<>();
+        List<String> literalProjections = new ArrayList<>();
         if (cursor.matchSymbol("*")) {
             projections.add("*");
+            literalProjections.add(null);
         } else {
-            projections.add(parseProjection(cursor));
+            parseSelectProjection(cursor, projections, literalProjections);
             while (cursor.matchSymbol(",")) {
-                projections.add(parseProjection(cursor));
+                parseSelectProjection(cursor, projections, literalProjections);
             }
         }
 
-        cursor.expectKeyword("FROM");
-        SelectStatement.FromItem from = parseFromItem(cursor);
+        SelectStatement.FromItem from = null;
         List<SelectStatement.JoinClause> joins = new ArrayList<>();
-        while (cursor.matchKeyword("INNER") || cursor.matchKeyword("JOIN")) {
-            if ("INNER".equalsIgnoreCase(cursor.previousLexeme())) {
-                cursor.expectKeyword("JOIN");
+        if (cursor.matchKeyword("FROM")) {
+            from = parseFromItem(cursor);
+            while (cursor.matchKeyword("INNER") || cursor.matchKeyword("JOIN")) {
+                if ("INNER".equalsIgnoreCase(cursor.previousLexeme())) {
+                    cursor.expectKeyword("JOIN");
+                }
+                SelectStatement.FromItem right = parseFromItem(cursor);
+                cursor.expectKeyword("ON");
+                String leftCol = parseProjection(cursor);
+                cursor.expectSymbol("=");
+                String rightCol = parseProjection(cursor);
+                joins.add(new SelectStatement.JoinClause(right, leftCol, rightCol));
             }
-            SelectStatement.FromItem right = parseFromItem(cursor);
-            cursor.expectKeyword("ON");
-            String leftCol = parseProjection(cursor);
-            cursor.expectSymbol("=");
-            String rightCol = parseProjection(cursor);
-            joins.add(new SelectStatement.JoinClause(right, leftCol, rightCol));
         }
 
         WhereClause where = null;
@@ -104,7 +108,24 @@ public final class Parser {
 
         cursor.matchSymbol(";");
         cursor.expectEof();
-        return new SelectStatement(projections, from, joins, where, groupBy, having, orderBy, limit);
+        return new SelectStatement(projections, literalProjections, from, joins, where, groupBy, having, orderBy, limit);
+    }
+
+    private void parseSelectProjection(Cursor cursor, List<String> projections, List<String> literals) {
+        if (cursor.current().type() == TokenType.STRING || cursor.current().type() == TokenType.NUMBER) {
+            String literal = cursor.expectLiteral();
+            String alias = literal;
+            if (cursor.matchKeyword("AS")) {
+                alias = cursor.expectIdentifier();
+            } else if (cursor.isIdentifier()) {
+                alias = cursor.expectIdentifier();
+            }
+            projections.add(alias);
+            literals.add(literal);
+            return;
+        }
+        projections.add(parseProjection(cursor));
+        literals.add(null);
     }
 
     private SelectStatement.FromItem parseFromItem(Cursor cursor) {
@@ -258,6 +279,23 @@ public final class Parser {
         cursor.matchSymbol(";");
         cursor.expectEof();
         return new CreateTableStatement(tableName, columns);
+    }
+
+    public CreateIndexStatement parseCreateIndex(String sql) {
+        List<Token> tokens = new Tokenizer().tokenize(sql);
+        Cursor cursor = new Cursor(tokens);
+
+        cursor.expectKeyword("CREATE");
+        cursor.expectKeyword("INDEX");
+        String indexName = cursor.expectIdentifier();
+        cursor.expectKeyword("ON");
+        String tableName = cursor.expectIdentifier();
+        cursor.expectSymbol("(");
+        String columnName = cursor.expectIdentifier();
+        cursor.expectSymbol(")");
+        cursor.matchSymbol(";");
+        cursor.expectEof();
+        return new CreateIndexStatement(indexName, tableName, columnName);
     }
 
     private static final class Cursor {

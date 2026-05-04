@@ -78,4 +78,19 @@ class LogicalPlannerTest {
         LogicalPlanNode plan = new LogicalPlanner().planSelect(bound);
         assertEquals("Aggregate", plan.nodeType());
     }
+
+    @Test
+    void prefersIndexScanForEqualityPredicateOnIndexedColumn() {
+        SchemaCatalog catalog = new SchemaCatalog();
+        catalog.register(new TableSchema("users", Set.of("id", "age"), Set.of("age")));
+        SelectStatement stmt = new Parser().parseSelect("SELECT id FROM users WHERE age = 30;");
+        BoundSelect bound = new NameBinder().bindSelect(stmt, catalog);
+
+        LogicalPlanNode plan = new LogicalPlanner().planSelect(bound);
+        assertTrue(plan instanceof ProjectNode);
+        ProjectNode project = (ProjectNode) plan;
+        assertTrue(project.input() instanceof FilterNode);
+        FilterNode filter = (FilterNode) project.input();
+        assertTrue(filter.input() instanceof IndexScanNode);
+    }
 }

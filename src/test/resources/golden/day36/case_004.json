@@ -1,0 +1,11 @@
+{
+  "name": "day36_case_004_txn_error_commit_without_begin",
+  "script": "COMMIT;",
+  "expected": {
+    "columns": [],
+    "rows": [],
+    "errorCategory": "TRANSACTION",
+    "errorMessage": null,
+    "metadata": {"phase": "day36", "focus": "txn_error_category"}
+  }
+}

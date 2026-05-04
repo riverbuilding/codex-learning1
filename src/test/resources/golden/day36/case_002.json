@@ -1,0 +1,11 @@
+{
+  "name": "day36_case_002_transaction_rollback_visibility",
+  "script": "CREATE TABLE t (id INT); BEGIN; INSERT INTO t VALUES (1); ROLLBACK; SELECT COUNT(*) FROM t;",
+  "expected": {
+    "columns": ["COUNT(*)"],
+    "rows": [["0"]],
+    "errorCategory": null,
+    "errorMessage": null,
+    "metadata": {"phase": "day36", "focus": "rollback_visibility"}
+  }
+}

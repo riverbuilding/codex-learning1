@@ -51,3 +51,6 @@ This document defines externally observable behavior currently implemented for t
 - Query shaping and aggregates: `SemanticsContractTest.section4_*`, `InMemoryDatabaseTest.*`.
 - Relational scope behavior: `RelationalQueryCompletenessTest.*`.
 - Error normalization: `ErrorParityTest.*`, `ErrorNormalizationIntegrationTest.*`.
+# Parity Candidate Freeze
+
+This semantics contract is frozen for SQLite 1.0 scoped parity candidate as of **2026-05-04**.

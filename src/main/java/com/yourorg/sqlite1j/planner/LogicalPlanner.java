@@ -4,11 +4,12 @@ import com.yourorg.sqlite1j.sql.InsertStatement;
 import com.yourorg.sqlite1j.sql.SelectStatement;
 import com.yourorg.sqlite1j.sql.DeleteStatement;
 import com.yourorg.sqlite1j.sql.UpdateStatement;
+import com.yourorg.sqlite1j.sql.WhereClause;
 
 public final class LogicalPlanner {
     public LogicalPlanNode planSelect(BoundSelect boundSelect) {
         SelectStatement stmt = boundSelect.statement();
-        LogicalPlanNode current = new TableScanNode(boundSelect.table().name());
+        LogicalPlanNode current = scanFor(boundSelect);
 
         if (stmt.whereClause() != null) {
             current = new FilterNode(current, stmt.whereClause());
@@ -25,6 +26,14 @@ public final class LogicalPlanner {
             current = new LimitNode(current, stmt.limit());
         }
         return current;
+    }
+
+    private LogicalPlanNode scanFor(BoundSelect boundSelect) {
+        WhereClause where = boundSelect.statement().whereClause();
+        if (where != null && "=".equals(where.operator()) && boundSelect.table().hasIndexOn(where.column())) {
+            return new IndexScanNode(boundSelect.table().name(), where.column());
+        }
+        return new TableScanNode(boundSelect.table().name());
     }
 
     public LogicalPlanNode planInsert(InsertStatement insert) {
