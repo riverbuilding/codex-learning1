@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -21,6 +22,7 @@ public final class FileBackedDatabase {
     private final Path file;
     private final ObjectMapper mapper = new ObjectMapper();
     private final InMemoryDatabase delegate = new InMemoryDatabase();
+    private final Object mutex = new Object();
 
     public FileBackedDatabase(Path file) {
         this.file = file;
@@ -28,9 +30,11 @@ public final class FileBackedDatabase {
     }
 
     public List<List<DbValue>> executeStatementNormalized(Statement stmt) {
-        List<List<DbValue>> result = delegate.executeStatementNormalized(stmt);
-        persist();
-        return result;
+        synchronized (mutex) {
+            List<List<DbValue>> result = delegate.executeStatementNormalized(stmt);
+            persist();
+            return result;
+        }
     }
 
     private void load() {
@@ -70,7 +74,9 @@ public final class FileBackedDatabase {
             byte[] fileBytes = new byte[HEADER_SIZE + payload.length];
             System.arraycopy(SQLITE_MAGIC, 0, fileBytes, 0, SQLITE_MAGIC.length);
             System.arraycopy(payload, 0, fileBytes, HEADER_SIZE, payload.length);
-            Files.write(file, fileBytes);
+            Path temp = file.resolveSibling(file.getFileName().toString() + ".tmp");
+            Files.write(temp, fileBytes);
+            Files.move(temp, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
         } catch (IOException ex) {
             throw new DbException(ErrorNormalizer.normalize("STORAGE", "disk i/o while saving database: " + ex.getMessage()));
         }

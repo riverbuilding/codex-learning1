@@ -23,6 +23,13 @@ import java.util.Map;
 import java.util.Comparator;
 
 public final class InMemoryDatabase {
+    /**
+     * Concurrency envelope (minimal parity contract):
+     * - all statement/transaction entrypoints are serialized on this database instance
+     * - each statement observes a consistent state
+     * - rollback restores pre-transaction snapshot atomically relative to other calls
+     */
+    private final Object mutex = new Object();
     private final Map<String, List<String>> schemas = new HashMap<>();
     private final Map<String, List<Map<String, DbValue>>> rows = new HashMap<>();
     private final Map<String, List<String>> tableIndexes = new HashMap<>();
@@ -34,22 +41,28 @@ public final class InMemoryDatabase {
 
 
     public void beginTransaction() {
-        tx.begin();
-        txSnapshotRows = deepCopyRows(rows);
+        synchronized (mutex) {
+            tx.begin();
+            txSnapshotRows = deepCopyRows(rows);
+        }
     }
 
     public void commitTransaction() {
-        tx.commit();
-        txSnapshotRows = null;
+        synchronized (mutex) {
+            tx.commit();
+            txSnapshotRows = null;
+        }
     }
 
     public void rollbackTransaction() {
-        tx.rollback();
-        if (txSnapshotRows != null) {
-            rows.clear();
-            rows.putAll(txSnapshotRows);
+        synchronized (mutex) {
+            tx.rollback();
+            if (txSnapshotRows != null) {
+                rows.clear();
+                rows.putAll(txSnapshotRows);
+            }
+            txSnapshotRows = null;
         }
-        txSnapshotRows = null;
     }
 
 
@@ -99,10 +112,12 @@ public final class InMemoryDatabase {
     }
 
     public List<List<DbValue>> executeStatementNormalized(Statement stmt) {
-        try {
-            return executeStatement(stmt);
-        } catch (RuntimeException e) {
-            throw new DbException(ErrorParity.normalizeThrowable(e));
+        synchronized (mutex) {
+            try {
+                return executeStatement(stmt);
+            } catch (RuntimeException e) {
+                throw new DbException(ErrorParity.normalizeThrowable(e));
+            }
         }
     }
 
